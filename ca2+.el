@@ -37,7 +37,6 @@
 ;; - add 'show only next word' toggle
 ;; - add substring matching again
 ;; - add autoexpand
-;; - scroll buffer if overlay is not fully visible
 ;;
 ;; BUGS:
 ;; - point jump around when cycling (remove current workaround)
@@ -691,8 +690,7 @@
 ;;; pseudo tooltip ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun ca-show-list-pseudo-tooltip (&optional point)
-  (let* ((max-lines (- (window-height)
-                       (count-lines (point) (window-start))))
+  (let* ((max-lines (- (window-height) 2))
          (candidates (ca-pick-candidates max-lines)))
     (ca-show-pseudo-tooltip-at-point
      candidates
@@ -728,7 +726,7 @@
     (let ((end-offset (- (current-column) end)))
       (when (> end-offset 0)
         (setq after-string (make-string end-offset ?b))))
-    (when no-insert
+    (when no-insert   
       ;; prevent inheriting of faces
       (setq before-string (when before-string
                             (propertize before-string 'face 'default)))
@@ -769,6 +767,10 @@
 
 (defun ca-show-pseudo-tooltip-at-point (lines &optional highlight)
   (ca-hide-pseudo-tooltip)
+  (let ((lines-to-bottom (count-lines (point) (window-end))))
+    (if (< lines-to-bottom (length lines))
+	(scroll-down (+ (- lines-to-bottom (length lines) 2)))))
+
   (let* ((strip (ca-pseudo-tooltip-strip))
 	 (start (- (- (current-column) 
 		      (- (length ca-prefix) strip))
@@ -797,8 +799,8 @@
                        'face (if (equal (incf i) highlight)
                                  'ca-pseudo-tooltip-selection-face
                                'ca-pseudo-tooltip-face))))
-                 lines lengths)))
-    (save-excursion
+                 lines lengths)))   
+    (save-excursion  
       (let ((max (point-max)))
         (while (and lines (/= (vertical-motion 1) 0))
           (ca-show-pseudo-tooltip-line (+ (current-column) start)
