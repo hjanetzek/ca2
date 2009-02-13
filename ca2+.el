@@ -181,27 +181,52 @@
     (remove-hook 'pre-command-hook 'ca-mode-pre-command t)))
 
 
+(defun ca-begin (&optional prefix new min-chars)
+  ;; workaround for jumpin jack point
+  (when (looking-at "$") (insert-string " ") (backward-char))
+
+  (setq ca-current-source nil)
+  (setq ca-last-command-change (point))
+  ;;(ca-grab-prefix)
+  (ca-get-candidates)
+
+  (if (null ca-candidates)
+      (ca-finish)
+    (ca-enable-active-keymap)
+    (setq ca-common (try-completion "" ca-candidates))
+    (setq ca-selection 0))
+  ca-candidates)
+
+
+(defun ca-finish ()  
+  (interactive)
+  (ca-disable-active-keymap)
+  (setq ca-candidates nil)
+  (setq ca-all-candidates nil)
+  (setq ca-abbrev-match-on nil)
+  (ca-hide-overlay)
+  (ca-hide-pseudo-tooltip)
+  ;; TODO in which cases don not run hook?
+  (ca-source-action))
+
+
+(defun ca-filter-candidates ()
+  (if (not (ca-cons-candidates ca-all-candidates))
+      (setq ca-candidates 
+	      (all-completions ca-prefix ca-all-candidates))
+    ;; why cant all-candidates spit out a cons list?!
+    (setq ca-candidates nil)
+    (dolist (item ca-all-candidates)
+      (if  (string-match (concat "^" ca-prefix) (car-item))
+	  (push item ca-candidates)))
+    (setq ca-candidates (nreverse ca-candidates))))
+
+
 (defun ca-mode-pre-command ()
   (when ca-candidates
     (ca-hide-pseudo-tooltip)
     (ca-hide-overlay)
     (setq ca-last-command-change (point))))
-
-
-(defsubst ca-match-prefix (str)
-  (string-match (concat "^" ca-prefix) str))
-
-
-(defun ca-filter-candidates ()
-  (if (not (cdr-safe (car ca-all-candidates)))
-      (setq ca-candidates 
-	      (all-completions ca-prefix ca-all-candidates))
-    ;; damn why cant all-candidates spit out a cons list?!
-    (setq ca-candidates nil)
-    (dolist (item ca-all-candidates)
-      (if (ca-match-prefix (car item)) 
-	  (push item ca-candidates)))
-    (setq ca-candidates (nreverse ca-candidates))))
 
 
 (defun ca-post-command ()
@@ -253,17 +278,6 @@
       (setq ca-common (try-completion "" ca-candidates))
       (ca-show-overlay)
       (ca-show-overlay-tips))))
-
-
-(defun ca-finish ()
-  (ca-disable-active-keymap)
-  (setq ca-candidates nil)
-  (setq ca-all-candidates nil)
-  (setq ca-abbrev-match-on nil)
-  (ca-hide-overlay)
-  (ca-hide-pseudo-tooltip)
-  ;; TODO in which cases don not run hook?
-  (ca-source-action))
 
 
 ;; taken from auto-complete, find word near to point for sorting
@@ -416,24 +430,6 @@
       ;; 	    (push word candidates))))
     candidates))
 
-
-(defun ca-begin (&optional prefix new min-chars)
-  ;; workaround for jumpin jack point
-  (when (looking-at "$") 
-    (insert-string " ")
-    (backward-char))
-
-  (setq ca-current-source nil)
-  (setq ca-last-command-change (point))
-  ;;(ca-grab-prefix)
-  (ca-get-candidates)
-
-  (if (null ca-candidates)
-      (ca-finish)
-    (ca-enable-active-keymap)
-    (setq ca-common (try-completion "" ca-candidates))
-    (setq ca-selection 0))
-  ca-candidates)
 
 
 ;;FIXME set prefix nil if nothing is found 
