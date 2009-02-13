@@ -113,6 +113,20 @@
   "*"
   :group 'ca-mode)
 
+(defcustom ca-modes
+  '(emacs-lisp-mode lisp-interaction-mode
+                    c-mode cc-mode c++-mode java-mode
+                    perl-mode cperl-mode python-mode ruby-mode
+                    ecmascript-mode javascript-mode js2-mode php-mode css-mode
+                    makefile-mode makefile-gmake-mode
+		    sh-mode fortran-mode f90-mode ada-mode
+                    xml-mode sgml-mode)
+  "Major modes `ca-mode' can run on."
+  :type '(list symbol)
+  :group 'ca-mode)
+
+
+
 (defvar ca-overlay nil)
 (defvar ca-common-overlay nil)
 (defvar ca-hide-overlay nil)
@@ -160,7 +174,7 @@
 (defconst ca-continue-commands
   '(ca-expand-common ca-expand-top ca-expand-anything ca-cycle
     ca-cycle-backwards universal-argument
-    ca-start-showing magic-tab ca-match-abbrev 
+    ca-start-showing ca-match-abbrev 
     ca-expand-abbrev ca-next-source)
   "Commands as given by `last-command' that don't end extending.")
 
@@ -197,7 +211,21 @@
     (remove-hook 'pre-command-hook 'ca-mode-pre-command t)))
 
 
+(defun ca-mode-maybe ()
+  "What buffer `ca-mode' prefers."
+  (if (and (not (minibufferp (current-buffer)))
+           (memq major-mode ca-modes))
+      (ca-mode 1)))
+
+(define-global-minor-mode global-ca-mode
+  ca-mode ca-mode-maybe
+  :group 'ca-mode)
+
+
 (defun ca-begin (&optional prefix new min-chars)
+  (unless (memq this-command ca-continue-commands)
+    (push this-command ca-continue-commands))
+
   ;; workaround for jumpin jack point
   (when (looking-at "$") (insert-string " ") (backward-char))
 
