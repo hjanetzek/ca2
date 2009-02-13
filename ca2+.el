@@ -1,10 +1,27 @@
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; CompleteAnything^2+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; fork of company-mode.el, with code from auto-complete.el and completion 
 ;; methods found on emacswiki ...pronounced 'c a 2 plus'
+
+;; This file is NOT part of GNU Emacs
+
+;;; License
 ;;
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation; either version 3, or (at your option)
+;; any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program; see the file COPYING.  If not, write to
+;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+;; Floor, Boston, MA 02110-1301, USA.
+
 ;; changes:
 ;; - tab cycles through completion sources (of course it goes through sources 
 ;;   until candidates were found)
@@ -797,11 +814,6 @@
 
 (defun ca-clear-completion-sources ()
   (setq ca-source-alist))
-
-
-;; (defun ca-in-symbol-or-comment (&optional point)
-;;   (let ((pos (syntax-ppss)))
-;;     (or (nth 3 pos) (nth 4 pos))))
 
 
 ;;; debug ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
