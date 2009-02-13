@@ -20,12 +20,12 @@
 ;; Floor, Boston, MA 02110-1301, USA.
 
 
-;; based on company-mode.el, auto-complete.el and completion methods 
+;; based on company-mode.el, auto-complete.el and completion methods
 ;; found on emacswiki
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; dabbrev ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-   
+
 (defun ca-dabbrev-completion-func (prefix)
   "A wrapper for dabbrev that returns a list of expansion of
   PREFIX ordered in the same way dabbrev-expand find expansions.
@@ -43,7 +43,7 @@
     ;; Search backward until we hit another buffer or reach max num
     (save-excursion
       (while (and (< i 20)
-		  (setq expansion (dabbrev--find-expansion 
+		  (setq expansion (dabbrev--find-expansion
 				   prefix 1 ignore-case))
 		  (not dabbrev--last-buffer))
 	(setq all-expansions (nconc all-expansions (list expansion)))
@@ -61,7 +61,7 @@
     (save-excursion
       (while
 	  (and (< j 20)
-	       (setq expansion (dabbrev--find-expansion 
+	       (setq expansion (dabbrev--find-expansion
 				prefix -1 ignore-case)))
 	(setq all-expansions (nconc all-expansions (list expansion)))
 	(setq j (+ i j))))
@@ -100,8 +100,8 @@
     (decider    . filename)
     (limit      . 1)   ;; minimum prefix length to find completion
     (separator  . "/") ;; truncate candidates shown in popup
-                       ;; before last position of separator 
-    (continue   . t)   ;; find new completions after expansion 
+                       ;; before last position of separator
+    (continue   . t)   ;; find new completions after expansion
     (sorted     . t)
     (name       . "filename"))
   "ca2+ filename source")
@@ -170,7 +170,7 @@
         cands)
     (maphash (lambda (key value)
 	       (if (string-match regex key)
-		   (push (cons key (yas/template-name (cdar value))) 
+		   (push (cons key (yas/template-name (cdar value)))
 			 cands)))
              hashtab)
     (if parent
@@ -221,13 +221,13 @@
 
 
 
-;; (dolist (hook '(emacs-lisp-mode-hook 
-;; 		lisp-mode-hook 
+;; (dolist (hook '(emacs-lisp-mode-hook
+;; 		lisp-mode-hook
 ;; 		lisp-interaction-mode-hook
-;; 		c-mode-hook 
+;; 		c-mode-hook
 ;; 		c++-mode-hook
 ;; 		java-mode-hook))
-;;   (add-hook hook '(lambda() 
+;;   (add-hook hook '(lambda()
 ;; 		    (ca-mode 1))))
 
 ;;(ca-clear-completion-sources)
