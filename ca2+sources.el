@@ -119,6 +119,7 @@
     (limit      . 1)
     (sorted     . nil)
     ;;(separator  . "-")
+    (sort-by-occurence . t)
     (name       . "elisp"))
   "ca2+ lisp symbol source")
 
@@ -153,6 +154,7 @@
   '((candidates . ca-gtags-completion-func)
     (limit      . 1)
     (sorted     . nil)
+    (sort-by-occurence . t)
     (name       . "gtags"))
   "ca2+ gtags source")
 
@@ -219,16 +221,6 @@
   (ca-add-completion-source
    mode ca-yasnippet-source))
 
-
-
-;; (dolist (hook '(emacs-lisp-mode-hook
-;; 		lisp-mode-hook
-;; 		lisp-interaction-mode-hook
-;; 		c-mode-hook
-;; 		c++-mode-hook
-;; 		java-mode-hook))
-;;   (add-hook hook '(lambda()
-;; 		    (ca-mode 1))))
 
 ;;(ca-clear-completion-sources)
 

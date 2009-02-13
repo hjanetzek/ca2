@@ -422,23 +422,20 @@
 
     (when candidates
       (message "%s candidates" (cdr-safe (assq 'name ca-current-source)))
-      (if (ca-source-is-sorted)
-	  (setq ca-all-candidates candidates)
-	(setq ca-all-candidates
-	      (ca-sort-candidates candidates)))
+      (unless (ca-source-is-sorted)
+	(setq candidates (ca-sort-candidates candidates)))
 
+      (if (cdr-safe (assq 'sort-by-occurence ca-current-source))
+	  (let ((around (delete ca-prefix (ca-words-in-buffer)))
+		(len (length candidates)))
+	    (dolist (word around)
+	      (setq candidates (delete word candidates))
+	      (if (not (eq len (length candidates)))
+		  (push word candidates)))))
+
+      (setq ca-all-candidates candidates)
       (setq ca-candidates ca-all-candidates))
-
-      ;;(setq candidates (delete-duplicates candidates))
-      ;;(setq around (delete prefix around))
-      ;; move words around point to the beginning
-      ;; (let ((len (length candidates)))
-      ;;   (dolist (word (nreverse around))
-      ;; 	(setq candidates (delete word candidates))
-      ;; 	(if (not (eq len (length candidates)))
-      ;; 	    (push word candidates))))
     candidates))
-
 
 
 ;;FIXME set prefix nil if nothing is found
@@ -766,7 +763,7 @@
 
 (defun ca-show-pseudo-tooltip-at-point (lines &optional highlight)
   (ca-hide-pseudo-tooltip)
-  (let ((lines-to-bottom (count-lines (point) (window-end))))
+  (let ((lines-to-bottom (- (window-height) (count-lines (point) (window-start)))))
     (if (< lines-to-bottom (length lines))
 	(scroll-down (+ (- lines-to-bottom (length lines) 2)))))
 
@@ -857,7 +854,7 @@
 
 ;; taken from auto-complete, find word near to point for sorting
 ;; candidates
-(defun ca-candidate-words-in-buffer ()
+(defun ca-words-in-buffer ()
   "Default implementation for `ac-candidate-function'."
   (if (> (length ca-prefix) 0)
       (let ((i 0)
@@ -876,7 +873,7 @@
             (unless (member candidate candidates)
               (push candidate candidates)
               (setq i (1+ i))))
-          ;; search backward
+          ;; search forward
           (goto-char (+ ac-point (length ca-prefix)))
           (while (and (< i ac-limit)
                       (re-search-forward regexp nil t))
@@ -884,8 +881,8 @@
             (unless (member candidate candidates)
               (push candidate candidates)
               (setq i (1+ i))))
-          (goto-char ac-point)
-          (nreverse candidates)))))
-
+          (goto-char ac-point))
+	candidates)))
+ 
 (provide 'ca2+)
-
+ 
