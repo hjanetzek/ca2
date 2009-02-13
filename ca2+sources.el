@@ -221,14 +221,14 @@
 
 
 
-(dolist (hook '(emacs-lisp-mode-hook 
-		lisp-mode-hook 
-		lisp-interaction-mode-hook
-		c-mode-hook 
-		c++-mode-hook
-		java-mode-hook))
-  (add-hook hook '(lambda() 
-		    (ca-mode 1))))
+;; (dolist (hook '(emacs-lisp-mode-hook 
+;; 		lisp-mode-hook 
+;; 		lisp-interaction-mode-hook
+;; 		c-mode-hook 
+;; 		c++-mode-hook
+;; 		java-mode-hook))
+;;   (add-hook hook '(lambda() 
+;; 		    (ca-mode 1))))
 
 ;;(ca-clear-completion-sources)
 
