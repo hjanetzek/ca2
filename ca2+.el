@@ -153,7 +153,6 @@
 (defvar ca-selection 0)
 (defvar ca-prefix nil)
 (defvar ca-on nil)
-(defvar ca-abbrev-match-on nil)
 (defvar ca-current-source nil)
 (defvar ca-last-command-change nil)
 (defvar ca-initial-prefix nil)
@@ -174,7 +173,6 @@
         (setq ca-pseudo-tooltip-overlays nil)
         (setq ca-selection 0)
 	(setq ca-on nil)
-	(setq ca-abbrev-match-on nil)
 	(setq ca-current-source nil))
     (ca-finish)
     (remove-hook 'post-command-hook 'ca-post-command t)
@@ -203,7 +201,6 @@
   (ca-disable-active-keymap)
   (setq ca-candidates nil)
   (setq ca-all-candidates nil)
-  (setq ca-abbrev-match-on nil)
   (ca-hide-overlay)
   (ca-hide-pseudo-tooltip)
   ;; TODO in which cases don not run hook?
@@ -278,39 +275,6 @@
       (setq ca-common (try-completion "" ca-candidates))
       (ca-show-overlay)
       (ca-show-overlay-tips))))
-
-
-;; taken from auto-complete, find word near to point for sorting
-;; candidates
-(defun ca-candidate-words-in-buffer ()
-  "Default implementation for `ac-candidate-function'."
-  (if (> (length ca-prefix) 0)
-      (let ((i 0)
-	    (ac-point (point))
-	    (ac-limit 15)
-            candidate
-            candidates
-            (regexp (concat "\\b" (regexp-quote ca-prefix) 
-			    "\\(\\s_\\|\\sw\\)*\\b")))
-        (save-excursion
-          ;; search backward
-          (goto-char (- ac-point (length ca-prefix)))
-          (while (and (< i ac-limit)
-                      (re-search-backward regexp nil t))
-            (setq candidate (match-string-no-properties 0))
-            (unless (member candidate candidates)
-              (push candidate candidates)
-              (setq i (1+ i))))
-          ;; search backward
-          (goto-char (+ ac-point (length ca-prefix)))
-          (while (and (< i ac-limit)
-                      (re-search-forward regexp nil t))
-            (setq candidate (match-string-no-properties 0))
-            (unless (member candidate candidates)
-              (push candidate candidates)
-              (setq i (1+ i))))
-          (goto-char ac-point)
-          (nreverse candidates)))))
 
 
 ;; TODO pass candidate?
@@ -466,11 +430,6 @@
   (ca-get-candidates :next))
 
 
-(defun ca-match-abbrev ()
-  (interactive)
-  (setq ca-abbrev-match-on t))
-
-
 ;;; TODO: make this the Nth _visible_ completion?
 (defun ca-expand-number (n &optional word)
   "Expand the Nth candidate."
@@ -502,19 +461,6 @@
   (interactive)
   (unless ca-candidates
     (ca-begin)))
-
-
-;; (defun ca-expand-abbrev ()
-;;   (interactive)
-;;   (unless ca-mode (error "ca-mode not enabled")) 
-;;   (unless ca-candidates
-;;     (ca-begin))
-;;   (setq ca-abbrev-match-on t)
-;;   (if ca-candidates
-;;       (setq ca-selection
-;;             (min (max 0 (+ ca-selection 1))
-;;                  (1- (length ca-candidates))))
-;;     (message "No candidates found")))
 
 
 (defun ca-expand-or-cycle ()
@@ -562,17 +508,16 @@
 (defun ca-expand-common ()
   (interactive)
   (unless ca-mode (error "ca-mode not enabled")) 
-  (unless ca-abbrev-match-on
-    (unless ca-candidates
-      (ca-begin))
-    (if ca-candidates
-        (let ((common (ca-chop ca-common)))
-	  (if (zerop (length common))
-	      (ca-expand-number (1+ ca-selection) t)
-	    (ca-insert-candidate common))
-          common)
-      (when (called-interactively-p)
-	(error "No candidates found")))))
+  (unless ca-candidates
+    (ca-begin))
+  (if ca-candidates
+      (let ((common (ca-chop ca-common)))
+	(if (zerop (length common))
+	    (ca-expand-number (1+ ca-selection) t)
+	  (ca-insert-candidate common))
+	common)
+    (when (called-interactively-p)
+      (error "No candidates found"))))
 
 
 (defmacro ca-without-undo (&rest body)
@@ -627,7 +572,7 @@
 (defsubst ca-pick-candidates (page-size)
   (when ca-how-many-candidates-to-show
     (setq page-size (min page-size ca-how-many-candidates-to-show)))
-  (if t ;;(or ca-abbrev-match-on ca-tooltip-entire-names)
+  (if t ;;(ca-tooltip-entire-names)
       (ca-sublist ca-candidates
 		       (ca-get-selection-offset page-size) page-size)
     (mapcar 'ca-chop
@@ -669,7 +614,7 @@
                                     'face 'ca-expand-face))
 
 	 (assert (not ca-common-overlay))
-	 (if (and (= common-length 0) (not ca-abbrev-match-on))
+	 (if (= common-length 0)
 	     (setq ca-common-overlay
 		   (ca-put-overlay (- beg prefix-length) beg
 					'face 'ca-common-face))
@@ -779,7 +724,7 @@
 			   ca-prefix))
 	   (if sepstart (1+ sepstart) 0))
 	  ;; start at beginning of prefix
-	  (t ;;(or ca-abbrev-match-on ca-tooltip-entire-names)
+	  (t ;;(ca-tooltip-entire-names)
 	   0)
 	  ;; start at current column
 	  (t
@@ -879,6 +824,38 @@
   (add-to-list 'debug-ignored-errors (regexp-quote mess)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; taken from auto-complete, find word near to point for sorting
+;; candidates
+(defun ca-candidate-words-in-buffer ()
+  "Default implementation for `ac-candidate-function'."
+  (if (> (length ca-prefix) 0)
+      (let ((i 0)
+	    (ac-point (point))
+	    (ac-limit 15)
+            candidate
+            candidates
+            (regexp (concat "\\b" (regexp-quote ca-prefix) 
+			    "\\(\\s_\\|\\sw\\)*\\b")))
+        (save-excursion
+          ;; search backward
+          (goto-char (- ac-point (length ca-prefix)))
+          (while (and (< i ac-limit)
+                      (re-search-backward regexp nil t))
+            (setq candidate (match-string-no-properties 0))
+            (unless (member candidate candidates)
+              (push candidate candidates)
+              (setq i (1+ i))))
+          ;; search backward
+          (goto-char (+ ac-point (length ca-prefix)))
+          (while (and (< i ac-limit)
+                      (re-search-forward regexp nil t))
+            (setq candidate (match-string-no-properties 0))
+            (unless (member candidate candidates)
+              (push candidate candidates)
+              (setq i (1+ i))))
+          (goto-char ac-point)
+          (nreverse candidates)))))
 
 (provide 'ca2+)
 
