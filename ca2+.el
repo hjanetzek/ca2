@@ -20,6 +20,7 @@
 ;; - add 'show only next word' toggle
 ;; - add substring matching again
 ;; - add autoexpand
+;; - scroll buffer if overlay is not fully visible
 ;;
 ;; BUGS:
 ;; - point jump around when cycling (remove current workaround)
@@ -351,7 +352,7 @@
 
 (defun ca-get-candidates (&optional next)
   (let* ((candidates nil)
-	 (sources (append ;;TODO get sources when next or not ca-current-source 
+	 (sources (append
 		 (cdr (assoc major-mode ca-source-alist))
 		 (cdr (assoc 'otherwise ca-source-alist))))
 	 (sources (delq nil sources)))
@@ -536,18 +537,6 @@
     (when (eq prop 'keymap)
       (overlay-put ov 'face 'ca-common-face))
     ov))
-
-
-(defsubst ca-first (n list)
-  "Return the first N elements of LIST."
-  (butlast list (- (length list) n)))
-
-
-(defsubst ca-butfirst (n list)
-  "Return all but the first N elements of LIST."
-  (dotimes (i n)
-    (pop list))
-  list)
 
 
 ;; TODO there must be a library function for this ....
@@ -810,9 +799,9 @@
   (setq ca-source-alist))
 
 
-(defun ca-in-symbol-or-comment (&optional point)
-  (let ((pos (syntax-ppss)))
-    (or (nth 3 pos) (nth 4 pos))))
+;; (defun ca-in-symbol-or-comment (&optional point)
+;;   (let ((pos (syntax-ppss)))
+;;     (or (nth 3 pos) (nth 4 pos))))
 
 
 ;;; debug ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
