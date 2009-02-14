@@ -23,24 +23,25 @@
 ;; Floor, Boston, MA 02110-1301, USA.
 
 ;; changes:
-;; - tab cycles through completion sources (of course it goes through sources
+;; + tab cycles through completion sources (of course it goes through sources
 ;;   until candidates were found)
-;; - expand-common expand the current selected item to next word boundary
-;; - decider have to give the start position of prefix, not prefix string
-;; - added thing-at-point decider, see filename example
-;; - added continue-after-insertion option to sources
-;; - added action to sources to execute after insertion. see yasnippet example
-;; - candidates can be cons pairs, car is candidate, cdr is shown as minibuffer
+;; + expand-common expand the current selected candidate to next word boundary
+;; + decider has to give the start position of prefix, not prefix string
+;; + thing-at-point decider, see filename example
+;; + continue-after-insertion option to sources
+;; + action to sources to execute after insertion. see yasnippet example
+;; + candidates can be cons pairs, car is candidate, cdr is shown as minibuffer
 ;;   message (atm)
 ;;
 ;; TODO:
-;; - add 'show only next word' toggle
+;; - add 'show only next word' toggle, add option for automatically
+;;   use this mode when there are many completions
 ;; - add substring matching again
 ;; - add autoexpand
 ;;
 ;; BUGS:
 ;; - point jump around when cycling (remove current workaround)
-;; - problem with thing-at-point 'filename somtimes doesnt match dirs
+;;
 
 (require 'cl)
 (require 'thingatpt)
@@ -71,8 +72,7 @@
 
 (defface ca-common-face
   '((((class color) (background dark))
-     (:foreground "DarkOrchid2"
-     :background "gray20"))
+     (:foreground "DarkOrchid3"))
     (((class color) (background light))
      (:foreground "DarkOrchid4")))
   "*Face used for common parts during dynamic completion."
@@ -80,7 +80,7 @@
 
 (defface ca-expand-face
   '((((class color) (background dark))
-     (:background "gray20"))
+     (:foreground "DarkOrchid1"))
     (((class color) (background light))
      (:background "orange")))
   "*Face used for first complete match during dynamic completion."
@@ -124,12 +124,19 @@
   :type '(list symbol)
   :group 'ca-mode)
 
-
-
 (defvar ca-overlay nil)
 (defvar ca-common-overlay nil)
 (defvar ca-hide-overlay nil)
 (defvar ca-pseudo-tooltip-overlays nil)
+(defvar ca-source-alist nil)
+(defvar ca-common nil)
+(defvar ca-candidates nil)
+(defvar ca-all-candidates nil)
+(defvar ca-selection 0)
+(defvar ca-prefix nil)
+(defvar ca-current-source nil)
+(defvar ca-last-command-change nil)
+(defvar ca-complete-word-on nil)
 
 (defvar ca-mode-map
   (let ((map (make-sparse-keymap)))
@@ -166,7 +173,7 @@
     (define-key map "\M-9" (ca-expand-number-macro 9))
     (define-key map "\M-0" (ca-expand-number-macro 10))
     map)
-  "Keymap used in by `ca-mode' when a word is being completed.")
+  "Keymap used in by `ca-mode' when candidates being completed.")
 
 
 ;; TODO: use property!
@@ -177,16 +184,6 @@
     ca-expand-abbrev ca-next-source)
   "Commands as given by `last-command' that don't end extending.")
 
-(defvar ca-source-alist nil)
-(defvar ca-common nil)
-(defvar ca-candidates nil)
-(defvar ca-all-candidates nil)
-(defvar ca-selection 0)
-(defvar ca-prefix nil)
-(defvar ca-on nil)
-(defvar ca-current-source nil)
-(defvar ca-last-command-change nil)
-(defvar ca-initial-prefix nil)
 
 ;;;###autoload
 (define-minor-mode ca-mode
@@ -203,7 +200,7 @@
         (setq ca-all-candidates nil)
         (setq ca-pseudo-tooltip-overlays nil)
         (setq ca-selection 0)
-	(setq ca-on nil)
+	(setq ca-complete-word-on nil)
 	(setq ca-current-source nil))
     (ca-finish)
     (remove-hook 'post-command-hook 'ca-post-command t)
@@ -216,28 +213,29 @@
            (memq major-mode ca-modes))
       (ca-mode 1)))
 
+
 (define-global-minor-mode global-ca-mode
   ca-mode ca-mode-maybe
   :group 'ca-mode)
 
 
-(defun ca-begin (&optional prefix new min-chars)
-  (unless (memq this-command ca-continue-commands)
-    (push this-command ca-continue-commands))
-
-  ;; workaround for jumpin jack point
+(defun ca-begin ()
+  ;; workaround
   (when (looking-at "$") (insert-string " ") (backward-char))
 
-  (setq ca-current-source nil)
-  (setq ca-last-command-change (point))
-  ;;(ca-grab-prefix)
   (ca-get-candidates)
 
   (if (null ca-candidates)
       (ca-finish)
     (ca-enable-active-keymap)
     (setq ca-common (try-completion "" ca-candidates))
-    (setq ca-selection 0))
+    (setq ca-last-command-change (point))
+    (setq ca-selection 0)
+    ;; showing overlays is handled in post-command hook. this
+    ;; here makes sure that company is not aborted.
+    ;; (as it aborts on commands that are not in this list)
+    (unless (memq this-command ca-continue-commands)
+      (push this-command ca-continue-commands)))
   ca-candidates)
 
 
@@ -248,20 +246,47 @@
   (setq ca-all-candidates nil)
   (ca-hide-overlay)
   (ca-hide-pseudo-tooltip)
+  ;; workaround
+  (when (looking-at " $") (delete-char 1))
+
   ;; TODO in which cases don not run hook?
-  (ca-source-action))
+  (ca-source-action)
+  (setq ca-current-source nil))
+
+
+(defun ca-filter-words ()
+  (if (or (not (ca-source-has-common-prefix))
+	  (<= (length ca-candidates)
+	      ca-how-many-candidates-to-show))
+      (setq ca-complete-word-on nil)
+    (let ((cands nil)
+	  (len (length ca-prefix))
+	  cand end)
+      (setq ca-complete-word-on t)
+      (dolist (item ca-candidates)
+	(setq cand (ca-candidate-string item))
+	(setq end (string-match "\\W.+" cand len))
+	(if (and end (= end len))
+	    (setq end  (string-match "\\W" cand (1+ len)))
+	  (setq end  (string-match "\\W" cand len)))
+	(if end
+	    (push (substring cand 0 end) cands)
+	  (push cand cands)))
+      (setq ca-candidates
+	    (nreverse (delete-dups cands))))))
 
 
 (defun ca-filter-candidates ()
   (if (not (ca-cons-candidates ca-all-candidates))
       (setq ca-candidates
-	      (all-completions ca-prefix ca-all-candidates))
+	    (all-completions ca-prefix ca-all-candidates))
     ;; why cant all-candidates spit out a cons list?!
     (setq ca-candidates nil)
     (dolist (item ca-all-candidates)
-      (if  (string-match (concat "^" ca-prefix) (car-item))
+      (if  (string-match (concat "^" ca-prefix) (car item))
 	  (push item ca-candidates)))
-    (setq ca-candidates (nreverse ca-candidates))))
+    (setq ca-candidates (nreverse ca-candidates)))
+  (ca-filter-words))
 
 
 (defun ca-mode-pre-command ()
@@ -274,6 +299,15 @@
 (defun ca-post-command ()
   (when ca-candidates
     (cond
+     ((eq this-command 'ca-expand-top)
+      (when ca-complete-word-on
+	(ca-grab-prefix)
+	(unless (find-if '(lambda (item)
+			    (string-equal ca-prefix (ca-candidate-string item)))
+			 ca-all-candidates)
+	  (ca-filter-candidates)
+	  (setq ca-selection 0))))
+
      ;; expanded common substring
      ((eq this-command 'ca-expand-common)
       (setq cand (nth ca-selection ca-candidates))
@@ -281,8 +315,7 @@
       (ca-filter-candidates)
       (setq ca-selection (or (position-if
 			      '(lambda (c) (eq c cand))
-			      ca-candidates)
-			     0)))
+			      ca-candidates) 0)))
      ;; char inserted
      ((eq (- (point) ca-last-command-change) 1)
       (ca-grab-prefix)
@@ -294,8 +327,6 @@
       (let ((prefix ca-prefix))
 	(ca-grab-prefix)
 	(if (string-match prefix ca-prefix)
-	    ;; candidates were found for a prefix shorter or equal
-	    ;; the current prefix
 	    (ca-filter-candidates)
 	  (ca-get-candidates))
 	(setq ca-selection 0)))
@@ -305,21 +336,21 @@
       (setq ca-candidates nil)))
 
     (if (null ca-candidates)
-	(ca-finish))
+	(ca-finish)
 
-    ;; finish when only one candidate is left which
-    ;; equal the prefix and no new candidates can be found
-    (if (and (= (length ca-candidates) 1)
-	     (string-equal ca-prefix
-			   (ca-candidate-string-nth 0))
-	     (not (ca-source-continue-after-expansion)))
-	(ca-finish))
-      ;; update overlays
-      (if (>= ca-selection (length ca-candidates))
-	  (setq ca-selection 0)
-      (setq ca-common (try-completion "" ca-candidates))
-      (ca-show-overlay)
-      (ca-show-overlay-tips))))
+      ;; finish when only one candidate is left which
+      ;; is equal prefix and no new candidates can be found
+      (if (and (= (length ca-candidates) 1)
+	       (string-equal ca-prefix
+			     (ca-candidate-string-nth 0))
+	       (not (ca-source-continue-after-expansion)))
+	  (ca-finish)
+	;; update overlays
+	(if (>= ca-selection (length ca-candidates))
+	    (setq ca-selection 0))
+	(setq ca-common (try-completion "" ca-candidates))
+	(ca-show-overlay)
+	(ca-show-overlay-tips)))))
 
 
 ;; TODO pass candidate?
@@ -372,6 +403,10 @@
   (cdr-safe (assq 'separator ca-current-source)))
 
 
+(defun ca-source-has-common-prefix ()
+  (cdr-safe (assq 'common-prefix ca-current-source)))
+
+
 (defun ca-source-continue-after-expansion ()
   (if (not (cdr-safe (assq 'continue ca-current-source)))
       nil
@@ -384,7 +419,7 @@
 
 ;; check wheter the candidate list is made of cons pairs
 (defsubst ca-cons-candidates (cands)
-  (cdr-safe (car-safe cands)))
+  (consp (car-safe cands)))
 
 
 (defun ca-sort-candidates (cands)
@@ -434,7 +469,8 @@
 		  (push word candidates)))))
 
       (setq ca-all-candidates candidates)
-      (setq ca-candidates ca-all-candidates))
+      (setq ca-candidates ca-all-candidates)
+      (ca-filter-words))
     candidates))
 
 
@@ -446,8 +482,9 @@
 
 
 (defsubst ca-chop (candidate)
-  (let ((len (length ca-prefix)))
-    (substring (ca-candidate-string candidate) len)))
+  (if (and candidate ca-prefix);; XXX
+      (let ((len (length ca-prefix)))
+	(substring (ca-candidate-string candidate) len))))
 
 
 (defsubst ca-candidate-string (cand)
@@ -495,14 +532,15 @@
 	  (ca-insert-candidate cand)))
       candidate)))
 
+
+;; XXX remove?
 (defmacro ca-expand-then (command)
   `(lambda () (interactive) (ca-expand-top) (call-interactively ,command)))
 
 
 (defun ca-start-showing ()
   (interactive)
-  (unless ca-candidates
-    (ca-begin)))
+  (unless ca-candidates (ca-begin)))
 
 
 (defun ca-expand-or-cycle ()
@@ -526,7 +564,7 @@
   (if ca-candidates
       (let ((cand (nth ca-selection ca-candidates)))
 	(if (consp cand)
-	    (message ">>> %s" (cdr cand))))))
+	    (message "%s" (cdr cand))))))
 
 
 (defun ca-cycle-backwards (&optional n)
@@ -552,14 +590,16 @@
   (unless ca-mode (error "ca-mode not enabled"))
   (unless ca-candidates
     (ca-begin))
-  (if ca-candidates
-      (let ((common (ca-chop ca-common)))
-	(if (zerop (length common))
-	    (ca-expand-number (1+ ca-selection) t)
-	  (ca-insert-candidate common))
-	common)
-    (when (called-interactively-p)
-      (error "No candidates found"))))
+  (if ca-complete-word-on
+      (ca-expand-top)
+    (if ca-candidates
+	(let ((common (ca-chop ca-common)))
+	  (if (zerop (length common))
+	      (ca-expand-number (1+ ca-selection) t)
+	    (ca-insert-candidate common))
+	  common)
+      (when (called-interactively-p)
+	(error "No candidates found")))))
 
 
 (defmacro ca-without-undo (&rest body)
@@ -629,44 +669,32 @@
 ;;; overlays ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun ca-show-overlay ()
-  (unless ca-overlay
-    (let* ((candidate (ca-chop (nth ca-selection ca-candidates)))
-	   (prefix-length (length ca-prefix))
-           (common-length (length ca-common))
-           (beg (point)))
-      (assert (not ca-hide-overlay))
-      (ca-without-undo
-       (save-excursion
-         (insert candidate)
-         (assert (not ca-overlay))
-         (setq ca-overlay
-               (ca-put-overlay beg (point)
-                                    'face 'ca-expand-face))
-
-	 (assert (not ca-common-overlay))
-	 (if (= common-length 0)
-	     (setq ca-common-overlay
-		   (ca-put-overlay (- beg prefix-length) beg
-					'face 'ca-common-face))
+  (if ca-overlay
+      (ca-hide-overlay))
+  (let* ((candidate (ca-chop (nth ca-selection ca-candidates)))
+	 (prefix-length (length ca-prefix))
+	 (common-length (length ca-common))
+	 (beg (point)))
+    (ca-without-undo
+     (save-excursion
+       (insert candidate)
+       (setq ca-overlay
+	     (ca-put-overlay beg (point)
+			     'face 'ca-expand-face))
+       (if (= common-length 0)
 	   (setq ca-common-overlay
-		 (ca-put-overlay (- beg prefix-length)
-				      (+ (- beg prefix-length) common-length)
-				      'face 'ca-common-face))))))))
+		 (ca-put-overlay (- beg prefix-length) beg
+				 'face 'ca-common-face))
+	 (setq ca-common-overlay
+	       (ca-put-overlay (- beg prefix-length)
+			       (+ (- beg prefix-length) common-length)
+			       'face 'ca-common-face)))))))
 
-
-;;; tooltips ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun ca-show-overlay-tips ()
   (when (cdr ca-candidates)
     (when (eq ca-display-style 'pseudo-tooltip)
       (ca-show-list-pseudo-tooltip))))
-
-
-(defun ca-show-tips ()
-  (when (cdr ca-candidates)
-    (case ca-display-style
-      (minibuffer (ca-show-list-minibuffer))
-      (tooltip (ca-show-list-tooltip)))))
 
 
 (defun ca-hide-overlay ()
@@ -755,8 +783,8 @@
 	  (t ;;(ca-tooltip-entire-names)
 	   0)
 	  ;; start at current column
-	  (t
-	   (length ca-prefix))
+	  ;;(t
+	  ;; (length ca-prefix))
 	  )))
     start))
 
@@ -883,6 +911,5 @@
               (setq i (1+ i))))
           (goto-char ac-point))
 	candidates)))
- 
+
 (provide 'ca2+)
- 

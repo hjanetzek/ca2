@@ -102,7 +102,7 @@
     (separator  . "/") ;; truncate candidates shown in popup
                        ;; before last position of separator
     (continue   . t)   ;; find new completions after expansion
-    (sorted     . t)
+    ;;(sorted     . t)
     (name       . "filename"))
   "ca2+ filename source")
 
@@ -116,11 +116,15 @@
 
 (defvar ca-lisp-source
   '((candidates . ca-obarray-completion-func)
-    (limit      . 1)
-    (sorted     . nil)
+    (limit . 1)
+    (sorted . nil)
     ;;(separator  . "-")
     (sort-by-occurence . t)
-    (name       . "elisp"))
+    (common-prefix . t) ;; candidates have common prefixes,
+                        ;; this is used to reduce the number 
+                        ;; of visible candidates, instead
+                        ;; the prefixes are shown.
+    (name . "elisp"))
   "ca2+ lisp symbol source")
 
 
@@ -155,6 +159,7 @@
     (limit      . 1)
     (sorted     . nil)
     (sort-by-occurence . t)
+    (common-prefix . t)
     (name       . "gtags"))
   "ca2+ gtags source")
 
