@@ -286,8 +286,8 @@
       (setq ca-candidates nil)
       (dolist (item cands)
 	(if (= (length (cdr item)) 1)
-	    (setcar item (cadr item)))
-	(push item ca-candidates)))))
+	    (push (cadr item) ca-candidates)
+	  (push (car item) ca-candidates))))))
 
 
 (defun ca-filter-candidates ()
