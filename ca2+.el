@@ -254,6 +254,15 @@
   (setq ca-current-source nil))
 
 
+(defun ca-filter-words-push (word candidate list)
+  (let ((cands (assoc word list)))
+    (unless cands
+      (setq cands (cons word nil))
+      (push cands list))
+    (push candidate (cdr cands)))
+  list)
+
+
 (defun ca-filter-words ()
   (if (or (not (ca-source-has-common-prefix))
 	  (<= (length ca-candidates)
@@ -270,10 +279,15 @@
 	    (setq end  (string-match "\\W" cand (1+ len)))
 	  (setq end  (string-match "\\W" cand len)))
 	(if end
-	    (push (substring cand 0 end) cands)
-	  (push cand cands)))
-      (setq ca-candidates
-	    (nreverse (delete-dups cands))))))
+	    (setq cands (ca-filter-words-push 
+			 (substring cand 0 (1+ end))
+			 cand cands))
+	  (setq cands (ca-filter-words-push cand cand cands))))
+      (setq ca-candidates nil)
+      (dolist (item cands)
+	(if (= (length (cdr item)) 1)
+	    (setcar item (cadr item)))
+	(push item ca-candidates)))))
 
 
 (defun ca-filter-candidates ()
