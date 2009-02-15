@@ -27,7 +27,8 @@
 ;;   until candidates were found)
 ;; + substring matching: type ca-substring-match-delimiter (default 'space')
 ;;   to start this mode. e.g. "a[tab] iso s[ret]" will insert:
-;;   "add-log-iso8601-time-string"
+;;   "add-log-iso8601-time-string". this feature also saves you from having to 
+;;   type in not so easily reachable charachters like '-' or '_'
 ;; + expand-common expand the current selected candidate to next word boundary,
 ;;   if no common expansion is possible
 ;; + decider has to give the start position of prefix, not prefix string
@@ -43,7 +44,6 @@
 ;;   see gtags and elisp sources.
 ;;
 ;; TODO:
-;; - add substring matching again
 ;; - add autoexpand
 ;;
 ;; BUGS:
