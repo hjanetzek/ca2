@@ -22,6 +22,15 @@
 ;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth
 ;; Floor, Boston, MA 02110-1301, USA.
 
+
+;; either enable ca-mode per buffer via (ca-mode 1) or (global-ca-mode 1)
+;; to enable it in all buffer that match 'ca-modes'
+;;
+;; (require 'ca2+)
+;; (require 'ca2+sources)
+;; (require 'ca2+config)
+;; (global-ca-mode 1)
+
 ;; changes:
 ;; + tab cycles through sources 
 ;; + substring matching: type ca-substring-match-delimiter (default 'space')
@@ -31,7 +40,7 @@
 ;; + expand-common expand the current selected candidate to next word boundary,
 ;;   if no common expansion is possible
 ;; 
-;; + thing-at-point decider, see 'filename' source
+;; + thing-at-point decider can be used now, see 'filename' source
 ;; + continue-after-insertion option, to get new completions after insertion, 
 ;;   see 'filename' source
 ;; + actions to execute after insertion, see yasnippet source
@@ -761,7 +770,8 @@
 ;;; pseudo tooltip ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun ca-show-list-pseudo-tooltip (&optional point)
-  (let* ((max-lines (- (window-height) 2))
+  (let* ((max-lines (- (window-height) 6))
+	 (max-lines (if (< max-lines 0) 1 max-lines))
          (candidates (ca-pick-candidates max-lines)))
     (ca-show-pseudo-tooltip-at-point
      candidates
@@ -902,21 +912,21 @@
 
 ;;; Completion Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun ca-add-completion-source-1 (major-mode source)
+(defun ca-add-completion-source-1 (source mode)
   "Add a completion source for `ca-mode'."
-  (let ((sources (assoc major-mode ca-source-alist)))
+  (let ((sources (assoc mode ca-source-alist)))
     (unless sources
-      (setq sources (cons major-mode nil))
+      (setq sources (cons mode nil))
       (push sources ca-source-alist))
     (push source (cdr sources))
     source))
 
-(defun ca-add-completion-source (major-mode source)
+(defun ca-add-completion-source (source modes)
   "Add a completion source."
-  (if (consp major-mode)
-      (dolist (mode major-mode)
-	(ca-add-completion-source-1 mode source))
-    (ca-add-completion-source-1 major-mode)))
+  (if (consp modes)
+      (dolist (mode modes)
+	(ca-add-completion-source-1 source mode))
+    (ca-add-completion-source-1 source modes)))
   
 
 (defun ca-clear-completion-sources ()
