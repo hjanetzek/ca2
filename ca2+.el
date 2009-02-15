@@ -731,7 +731,7 @@
     (ca-without-undo
      (save-excursion
        (if ca-substring-match-on (insert " ["))
-       (insert candidate)
+       (insert (ca-candidate-string candidate))
        (if ca-substring-match-on (insert "]"))
        (setq ca-overlay
 	     (ca-put-overlay beg (point)
@@ -770,7 +770,7 @@
 ;;; pseudo tooltip ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun ca-show-list-pseudo-tooltip (&optional point)
-  (let* ((max-lines (- (window-height) 6))
+  (let* ((max-lines (- (window-height) 4))
 	 (max-lines (if (< max-lines 0) 1 max-lines))
          (candidates (ca-pick-candidates max-lines)))
     (ca-show-pseudo-tooltip-at-point
@@ -848,7 +848,7 @@
 (defun ca-show-pseudo-tooltip-at-point (lines &optional highlight)
   (ca-hide-pseudo-tooltip)
   (let ((lines-to-bottom (- (window-height) (count-lines (point) (window-start)))))
-    (if (< lines-to-bottom (length lines))
+    (if (<= lines-to-bottom (length lines))
 	(scroll-down (+ (- lines-to-bottom (length lines) 2)))))
 
   (let* ((strip (ca-pseudo-tooltip-strip))
