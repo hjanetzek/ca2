@@ -200,33 +200,4 @@
   "ca2+ yasnippet source")
 
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; install sources ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;; sources are pushed, so load lower priority sources first
-
-;; general sources
-(ca-add-completion-source
- 'otherwise ca-filename-source)
-
-(ca-add-completion-source
- 'otherwise ca-dabbrev-source)
-
-
-(dolist (mode '(c++-mode c-mode java-mode))
-  (ca-add-completion-source
-   mode ca-gtags-source))
-
-(dolist (mode '(emacs-lisp-mode lisp-interaction-mode))
-  (ca-add-completion-source
-   mode ca-lisp-source))
-
-(dolist (mode '(emacs-lisp-mode lisp-interaction-mode
-				c++-mode c-mode java-mode))
-  (ca-add-completion-source
-   mode ca-yasnippet-source))
-
-
-;;(ca-clear-completion-sources)
-
 (provide 'ca2+sources)

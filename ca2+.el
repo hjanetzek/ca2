@@ -23,15 +23,14 @@
 ;; Floor, Boston, MA 02110-1301, USA.
 
 ;; changes:
-;; + tab cycles through completion sources (of course it goes through sources
-;;   until candidates were found)
+;; + tab cycles through sources 
 ;; + substring matching: type ca-substring-match-delimiter (default 'space')
 ;;   to start this mode. e.g. "a[tab] iso s[ret]" will insert:
 ;;   "add-log-iso8601-time-string". this feature also saves you from having to 
 ;;   type in not so easily reachable charachters like '-' or '_'
 ;; + expand-common expand the current selected candidate to next word boundary,
 ;;   if no common expansion is possible
-;; + decider has to give the start position of prefix, not prefix string
+;; 
 ;; + thing-at-point decider, see 'filename' source
 ;; + continue-after-insertion option, to get new completions after insertion, 
 ;;   see 'filename' source
@@ -40,8 +39,8 @@
 ;;   message, see yasnippet source
 ;; + sources can indicate whether their candidates have a common-prefix, this
 ;;   is used to reduce the number of visible candidates, as the prefix will
-;;   be shown only once. after expand all candidates with that prefix are shown. 
-;;   see gtags and elisp sources.
+;;   be shown only once. after expansion of prefix  all candidates with that 
+;;   prefix are shown. see gtags and elisp sources.
 ;;
 ;; TODO:
 ;; - add autoexpand
@@ -903,7 +902,7 @@
 
 ;;; Completion Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun ca-add-completion-source (major-mode source)
+(defun ca-add-completion-source-1 (major-mode source)
   "Add a completion source for `ca-mode'."
   (let ((sources (assoc major-mode ca-source-alist)))
     (unless sources
@@ -912,6 +911,13 @@
     (push source (cdr sources))
     source))
 
+(defun ca-add-completion-source (major-mode source)
+  "Add a completion source."
+  (if (consp major-mode)
+      (dolist (mode major-mode)
+	(ca-add-completion-source-1 mode source))
+    (ca-add-completion-source-1 major-mode)))
+  
 
 (defun ca-clear-completion-sources ()
   (setq ca-source-alist))
