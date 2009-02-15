@@ -43,8 +43,8 @@
     ;; Search backward until we hit another buffer or reach max num
     (save-excursion
       (while (and (< i 20)
-		  (setq expansion (dabbrev--find-expansion
-				   prefix 1 ignore-case))
+		  (setq expansion 
+			(dabbrev--find-expansion prefix 1 ignore-case))
 		  (not dabbrev--last-buffer))
 	(setq all-expansions (nconc all-expansions (list expansion)))
 	(setq i (+ i 1))))
@@ -59,10 +59,9 @@
       (setq dabbrev--last-table table))
     ;; Search forward in current buffer and after that in other buffers
     (save-excursion
-      (while
-	  (and (< j 20)
-	       (setq expansion (dabbrev--find-expansion
-				prefix -1 ignore-case)))
+      (while (and (< j 20) 
+		  (setq expansion 
+			(dabbrev--find-expansion prefix -1 ignore-case)))
 	(setq all-expansions (nconc all-expansions (list expansion)))
 	(setq j (+ i j))))
     all-expansions))
@@ -118,7 +117,7 @@
   '((candidates . ca-obarray-completion-func)
     (limit . 1)
     (sorted . nil)
-    ;;(separator  . "-")
+    ;;(separator  . "-") ;; use this to strip common-prefix from tooltip
     (sort-by-occurence . t)
     (common-prefix . t) ;; candidates have common prefixes,
                         ;; this is used to reduce the number 
@@ -198,6 +197,8 @@
     (sorted     . t)
     (name       . "yasnippet"))
   "ca2+ yasnippet source")
+
+
 
 
 (provide 'ca2+sources)
