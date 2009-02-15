@@ -25,17 +25,21 @@
 ;; changes:
 ;; + tab cycles through completion sources (of course it goes through sources
 ;;   until candidates were found)
-;; + expand-common expand the current selected candidate to next word boundary
+;; + expand-common expand the current selected candidate to next word boundary,
+;;   if no common expansion is possible
 ;; + decider has to give the start position of prefix, not prefix string
-;; + thing-at-point decider, see filename example
-;; + continue-after-insertion option to sources
-;; + action to sources to execute after insertion. see yasnippet example
+;; + thing-at-point decider, see 'filename' source
+;; + continue-after-insertion option, to get new completions after insertion, 
+;;   see 'filename' source
+;; + actions to execute after insertion, see yasnippet source
 ;; + candidates can be cons pairs, car is candidate, cdr is shown as minibuffer
-;;   message (atm)
+;;   message, see yasnippet source
+;; + sources can indicate whether their candidates have a common-prefix, this
+;;   is used to reduce the number of visible candidates, as the prefix will
+;;   be shown only once. after expand all candidates with that prefix are shown. 
+;;   see gtags and elisp sources.
 ;;
 ;; TODO:
-;; - add 'show only next word' toggle, add option for automatically
-;;   use this mode when there are many completions
 ;; - add substring matching again
 ;; - add autoexpand
 ;;
@@ -137,6 +141,8 @@
 (defvar ca-current-source nil)
 (defvar ca-last-command-change nil)
 (defvar ca-complete-word-on nil)
+(defvar ca-substring-match-delimiter "+")
+(defvar ca-substring-match-on nil)
 
 (defvar ca-mode-map
   (let ((map (make-sparse-keymap)))
@@ -201,6 +207,7 @@
         (setq ca-pseudo-tooltip-overlays nil)
         (setq ca-selection 0)
 	(setq ca-complete-word-on nil)
+	(setq ca-substring-match-on nil)
 	(setq ca-current-source nil))
     (ca-finish)
     (remove-hook 'post-command-hook 'ca-post-command t)
@@ -332,7 +339,13 @@
 			      ca-candidates) 0)))
      ;; char inserted
      ((eq (- (point) ca-last-command-change) 1)
-      (ca-grab-prefix)
+      (if (not (or ca-substring-match-on
+		   (looking-back ca-substring-match-delimiter)))
+	  (ca-grab-prefix)
+	(setq ca-substring-match-on t)
+	(set ca-prefix 
+	     (append ca-prefix 
+		     (buffer-substring-no-properties (1- (point)) (point)))))
       (ca-filter-candidates)
       (setq ca-selection 0))
 
