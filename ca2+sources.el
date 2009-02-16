@@ -26,7 +26,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; dabbrev ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun ca-dabbrev-completion-func (prefix)
+(defun ca-source-dabbrev-candidates (prefix)
   "A wrapper for dabbrev that returns a list of expansion of
   PREFIX ordered in the same way dabbrev-expand find expansions.
   First, expansions from the current point and up to the beginning
@@ -66,8 +66,8 @@
 	(setq j (+ i j))))
     all-expansions))
 
-(defvar ca-dabbrev-source
-  '((candidates . ca-dabbrev-completion-func)
+(defvar ca-source-dabbrev
+  '((candidates . ca-source-dabbrev-candidates)
     (limit      . 1)
     (sorted     . t)
     (name       . "dabbrev"))
@@ -84,7 +84,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; filename ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun ca-file-name-completion-func (prefix)
+(defun ca-source-filename-candidates (prefix)
   (let ((dir (file-name-directory prefix)))
     (ignore-errors
       (mapcar (lambda (file) (concat dir file))
@@ -94,8 +94,8 @@
                           (file-name-nondirectory prefix) dir))))))
 
 
-(defvar ca-filename-source
-  '((candidates . ca-file-name-completion-func)
+(defvar ca-source-filename
+  '((candidates . ca-source-filename-candidates)
     (decider    . filename)
     (limit      . 1)   ;; minimum prefix length to find completion
     (separator  . "/") ;; truncate candidates shown in popup
@@ -109,12 +109,12 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; lisp symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun ca-obarray-completion-func (prefix)
+(defun ca-source-lisp-candidates (prefix)
   (all-completions prefix obarray))
 
 
-(defvar ca-lisp-source
-  '((candidates . ca-obarray-completion-func)
+(defvar ca-source-lisp
+  '((candidates . ca-source-lisp-candidates)
     (limit . 1)
     (sorted . nil)
     ;;(separator  . "-") ;; use this to strip common-prefix from tooltip
@@ -130,9 +130,8 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; gtags ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; from auto-complete-extension.el, by Andy Stewart
-(require 'gtags)
 
-(defun ca-gtags-candidates (prefix)
+(defun ca-source-gtags-candidates (prefix)
   (all-completions prefix
    (let ((option "-c")
 	 all-expansions
@@ -147,8 +146,8 @@
      all-expansions)))
 
 
-(defvar ca-gtags-source
-  '((candidates . ca-gtags-candidates)
+(defvar ca-source-gtags
+  '((candidates . ca-source-gtags-candidates)
     (limit      . 1)
     (sorted     . nil)
     (sort-by-occurence . t)
@@ -161,9 +160,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; yasnippet ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; taken from auto-complete.el
 
-(require 'yasnippet)
-
-(defun ca-yasnippet-candidate-1 (table)
+(defun ca-source-yasnippet-candidates-1 (table)
   (let ((hashtab (yas/snippet-table-hash table))
         (parent (yas/snippet-table-parent table))
 	(regex (concat "^" prefix))
@@ -174,23 +171,76 @@
 			 cands)))
              hashtab)
     (if parent
-	(append cands (ca-yasnippet-candidate-1 parent))
+	(append cands (ca-source-yasnippet-candidates-1 parent))
       cands)))
 
 
-(defun ca-yasnippet-candidate (prefix)
+(defun ca-source-yasnippet-candidates (prefix)
   (let ((table (yas/snippet-table major-mode)))
     (if table
-	(ca-yasnippet-candidate-1 table))))
+	(ca-source-yasnippet-candidates-1 table))))
 
 
-(defvar ca-yasnippet-source
-  '((candidates . ca-yasnippet-candidate)
+(defvar ca-source-yasnippet
+  '((candidates . ca-source-yasnippet-candidates)
     (action     . yas/expand)
     (limit      . 1)
     (sorted     . t)
     (name       . "yasnippet"))
   "ca2+ yasnippet source")
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; semantic ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; from http://www.emacswiki.org/emacs/AutoCompleteSources#toc3
+(defun ca-source-semantic-tags-decider ()
+  "Construct candidates from the list inside of tags.
+   If candidates were found return the starting point of tag"
+  (let ((list
+	 (condition-case nil
+	     (mapcar (lambda (tag)
+		       (if (listp tag)
+			   (let ((type (semantic-tag-type tag))
+				 (class (semantic-tag-class tag))
+				 (name (semantic-tag-name tag)))
+			     (if (or (and (stringp type)
+					  (string= type "class"))
+				     (eq class 'function)
+				     (eq class 'variable))
+				 (list (list name type class))))))
+		     (semantic-fetch-tags)))))
+    (when list
+      (setq ca-source-semantic-tags-analysis (apply 'append list))
+      (or (car-safe (bounds-of-thing-at-point 'symbol))
+	  (point))))
+
+(defun ca-source-semantic-tags-candidates (prefix)
+  (mapcar 'car ca-source-semantic-analysis))
+
+(defvar ca-source-semantic-tags-analysis nil)
+(defvar ca-source-semantic-tags
+  '((decider . ca-source-semantic-tags-decider)
+    (candidates . ca-source-semantic-tags-candidates)
+    (limit . 1)
+    (name . "semantic-tags")))
+
+
+(defvar ca-source-semantic-context-completions nil)
+(defun ca-source-semantic-context-decider ()
+  (let* ((p (point))
+	 (a (semantic-analyze-current-context p))
+	 (syms (if a (semantic-ia-get-completions a p)))
+	 (completions (mapcar 'semantic-tag-name syms)))
+    (message "updated %d completions" (length completions))
+
+    (when completions
+      (setq ca-source-semantic-context-completions completions)
+      (or (car-safe (bounds-of-thing-at-point 'symbol))
+	  p))))
+
+(defvar ca-source-semantic-context
+  '((decider . ca-source-semantic-context-decider)
+    (candidates . (lambda(prefix) ca-source-semantic-context-completions))
+    (name . "semantic-context")))
 
 
 

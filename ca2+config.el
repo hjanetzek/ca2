@@ -5,26 +5,36 @@
 
 ;; mode sources
 ;; sources are pushed on the list: load lower priority sources first
-(ca-add-completion-source ca-gtags-source
-			  '(c++-mode c-mode java-mode))
 
-(ca-add-completion-source ca-lisp-source 
+(ca-add-completion-source ca-source-gtags
+			    '(c++-mode c-mode java-mode))
+
+(ca-add-completion-source ca-source-lisp
 			  '(emacs-lisp-mode 
 			    lisp-interaction-mode))
 
-(ca-add-completion-source ca-yasnippet-source 
+(ca-add-completion-source ca-source-yasnippet
 			  '(emacs-lisp-mode 
 			    lisp-interaction-mode
 			    c++-mode c-mode java-mode))
 
+(eval-after-load 'semantic
+  '(progn 
+     (require 'semantic-ia)
+     (ca-add-completion-source ca-source-semantic-context
+			       '(c++-mode c-mode java-mode))
+     (ca-add-completion-source ca-source-semantic-tags
+			       '(c++-mode c-mode java-mode))))
+
 ;; general sources
-(ca-add-completion-source ca-filename-source
+(ca-add-completion-source ca-source-filename
 			  'otherwise)
 
-(ca-add-completion-source ca-dabbrev-source
+(ca-add-completion-source ca-source-dabbrev
 			  'otherwise)
 
 (global-ca-mode 1)
 
 (provide 'ca2+config)
+
 

@@ -286,7 +286,6 @@
 
 
 (defun ca-filter-words ()
-  ;;(message "ca-filter-words")
   (if (or (not (ca-source-has-common-prefix))
 	  (<= (length ca-candidates)
 	      ca-how-many-candidates-to-show))
@@ -319,7 +318,6 @@
 		     ca-substring-match-delimiter ".*"
 		     ca-prefix)
 		  ca-prefix)))
-    ;;(message "filter: %s" prefix)
     (setq ca-candidates nil)
     (dolist (item ca-all-candidates)
       (if  (string-match (concat "^" prefix) (ca-candidate-string item))
@@ -524,11 +522,11 @@
     candidates))
 
 
-;;FIXME set prefix nil if nothing is found
 (defun ca-grab-prefix (&optional thing)
     (setq start (ca-source-decider))
-    (setq ca-prefix
-	  (if start (buffer-substring-no-properties start (point)) "")))
+    (setq ca-prefix (if start 
+			(buffer-substring-no-properties start (point))
+		      nil)))
 
 
 (defsubst ca-chop (candidate)
