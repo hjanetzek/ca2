@@ -214,16 +214,18 @@
 	  (point)))))
 
 (defun ca-source-semantic-tags-candidates (prefix)
-  (mapcar 'car ca-source-semantic-analysis))
+  (mapcar '(lambda (tag) (cons (car tag) tag)) 
+	  ca-source-semantic-tags-analysis))
 
 (defvar ca-source-semantic-tags-analysis nil)
 
 (defvar ca-source-semantic-tags
   '((decider . (lambda ()
-		 (if (looking-back "\W")
+		 (if (looking-back "\w")
 		     ca-source-semantic-tags-decider)))
     (candidates . ca-source-semantic-tags-candidates)
     (limit . 1)
+    (filter. t) ;; source provides all candidates: filter with prefix
     (name . "semantic-tags"))
   "ca2+ semantic source for tag completion")
 
@@ -239,10 +241,14 @@
       (or (car-safe (bounds-of-thing-at-point 'symbol))
 	  p))))
 
+
+(defun ca-source-semantic-context-candidates (prefix)
+  ca-source-semantic-context-completions)
+
 (defvar ca-source-semantic-context
   '((decider . ca-source-semantic-context-decider)
-    (candidates . (lambda(prefix) 
-		    ca-source-semantic-context-completions))
+    (candidates . ca-source-semantic-context-candidates)
+    (filter . t)
     (name . "semantic-context"))
   "ca2+ source for semantic context completion")
 

@@ -39,6 +39,7 @@
 ;;   type in not so easily reachable charachters like '-' or '_'
 ;; + expand-common expand the current selected candidate to next word boundary,
 ;;   if no common expansion is possible
+;; + candidates are sorted by words in current buffer
 ;; 
 ;; + thing-at-point decider can be used now, see 'filename' source
 ;; + continue-after-insertion option, to get new completions after insertion, 
@@ -496,9 +497,9 @@
     (while (and sources (null candidates))
       (let ((source (car sources)))
 	(setq ca-current-source source)
-	(ca-grab-prefix)
-	(when (ca-source-check-limit)
-	  (setq candidates (ca-source-candidates)))
+	(when (ca-grab-prefix)
+	  (when (ca-source-check-limit)
+	    (setq candidates (ca-source-candidates))))
 	(setq sources (cdr sources))))
 
     (when candidates
@@ -518,7 +519,9 @@
       (setq ca-substring-match-on nil)
       (setq ca-all-candidates candidates)
       (setq ca-candidates ca-all-candidates)
-      (ca-filter-words))
+      (if (cdr-safe (assq 'filter ca-current-source))
+	  (ca-filter-candidates)
+	(ca-filter-words)))
     candidates))
 
 
