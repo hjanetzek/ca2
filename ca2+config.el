@@ -1,19 +1,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; install sources ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;; sources are pushed, so load lower priority sources first
 
 (ca-clear-completion-sources)
 
-
-;; general sources
-(ca-add-completion-source ca-filename-source
-			  'otherwise)
-
-(ca-add-completion-source ca-dabbrev-source
-			  'otherwise)
-
 ;; mode sources
+;; sources are pushed on the list: load lower priority sources first
 (ca-add-completion-source ca-gtags-source
 			  '(c++-mode c-mode java-mode))
 
@@ -26,6 +17,14 @@
 			    lisp-interaction-mode
 			    c++-mode c-mode java-mode))
 
+;; general sources
+(ca-add-completion-source ca-filename-source
+			  'otherwise)
+
+(ca-add-completion-source ca-dabbrev-source
+			  'otherwise)
+
 (global-ca-mode 1)
 
 (provide 'ca2+config)
+
