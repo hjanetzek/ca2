@@ -129,32 +129,26 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; gtags ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+;; from auto-complete-extension.el, by Andy Stewart
 (require 'gtags)
 
-(defun gtags-completion-list (prefix)
-  (let ((option "-c")
-	(prev-buffer (current-buffer))
-	(all-expansions nil)
-	expansion)
-    (set-buffer (generate-new-buffer "*Completions*"))
-    (call-process "global" nil t nil option prefix)
-    (goto-char (point-min))
-    (while (looking-at gtags-symbol-regexp)
-      (setq expansion (gtags-match-string 0))
-      (setq all-expansions (cons expansion all-expansions))
-      (forward-line))
-    (kill-buffer (current-buffer))
-    ;; recover current buffer
-    (set-buffer prev-buffer)
-    all-expansions))
-
-(defun ca-gtags-completion-func (prefix)
-    (gtags-completion-list prefix))
+(defun ca-gtags-candidates (prefix)
+  (all-completions prefix
+   (let ((option "-c")
+	 all-expansions
+	 expansion)
+     (with-temp-buffer
+       (call-process "global" nil t nil option prefix)
+       (goto-char (point-min))
+       (while (looking-at gtags-symbol-regexp)
+	 (setq expansion (gtags-match-string 0))
+	 (setq all-expansions (cons expansion all-expansions))
+	 (forward-line)))
+     all-expansions)))
 
 
 (defvar ca-gtags-source
-  '((candidates . ca-gtags-completion-func)
+  '((candidates . ca-gtags-candidates)
     (limit      . 1)
     (sorted     . nil)
     (sort-by-occurence . t)
