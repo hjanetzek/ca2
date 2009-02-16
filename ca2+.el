@@ -359,22 +359,21 @@
      ((eq (- (point) ca-last-command-change) 1)
       (when (looking-back ca-substring-match-delimiter)
 	(setq ca-substring-match-on t))
-      (if ca-substring-match-on
-	  (setq ca-prefix (concat ca-prefix 
-				  (buffer-substring-no-properties 
-				   ca-last-command-change (point))))
-	(ca-grab-prefix))
+
+      (setq ca-prefix (concat ca-prefix 
+			      (buffer-substring-no-properties 
+			       ca-last-command-change (point))))
       (ca-filter-candidates)
       (setq ca-selection 0))
 
      ;; char deleted
      ((eq (- (point) ca-last-command-change) -1)
-      (if ca-substring-match-on
-	  (setq ca-prefix (substring 
-			   ca-prefix 0
-			   (1- (length ca-prefix))))
-	(ca-grab-prefix))
-      (if (>= (length ca-prefix) (length ca-initial-prefix))
+      (setq ca-prefix (substring 
+		       ca-prefix 0
+		       (1- (length ca-prefix))))
+
+      (if (or (>= (length ca-prefix) (length ca-initial-prefix))
+	       (not (ca-source-is-filtered)))
 	  (ca-filter-candidates)
 	(ca-get-candidates))
       (setq ca-selection 0))
@@ -446,6 +445,10 @@
   (cdr-safe (assq 'sorted ca-current-source)))
 
 
+(defun ca-source-is-filtered ()
+  (not (cdr-safe (assq 'filter ca-current-source))))
+
+
 (defun ca-source-separator ()
   (cdr-safe (assq 'separator ca-current-source)))
 
@@ -511,8 +514,9 @@
 	  (when (ca-source-check-limit)
 	    ;; get candidates
 	    (setq candidates (ca-source-candidates))
+	    (setq ca-all-candidates candidates)
 	    ;; filter candidates by prefix
-	    (when (cdr-safe (assq 'filter ca-current-source))
+	    (when (not (ca-source-is-filtered))
 	      (message "filter!")
 	      (let ((filtered-candidates nil))
 		(dolist (item candidates)
@@ -527,6 +531,7 @@
       (unless (ca-source-is-sorted)
 	(setq candidates (ca-sort-candidates candidates)))
 
+      ;; TODO this needs to be done after each char insertion/deletion
       (if (cdr-safe (assq 'sort-by-occurence ca-current-source))
 	  (let ((around (delete ca-prefix (ca-words-in-buffer)))
 		(len (length candidates)))
@@ -537,8 +542,9 @@
 
       (setq ca-initial-prefix ca-prefix)
       (setq ca-substring-match-on nil)
-      (setq ca-all-candidates candidates)
-      (setq ca-candidates ca-all-candidates)
+      ;;(setq ca-all-candidates candidates)
+      ;;(setq ca-candidates ca-all-candidates)
+      (setq ca-candidates candidates)
       (ca-filter-words))
     candidates))
 
