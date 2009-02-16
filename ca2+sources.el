@@ -211,17 +211,21 @@
     (when list
       (setq ca-source-semantic-tags-analysis (apply 'append list))
       (or (car-safe (bounds-of-thing-at-point 'symbol))
-	  (point))))
+	  (point)))))
 
 (defun ca-source-semantic-tags-candidates (prefix)
   (mapcar 'car ca-source-semantic-analysis))
 
 (defvar ca-source-semantic-tags-analysis nil)
+
 (defvar ca-source-semantic-tags
-  '((decider . ca-source-semantic-tags-decider)
+  '((decider . (lambda ()
+		 (if (looking-back "\W")
+		     ca-source-semantic-tags-decider)))
     (candidates . ca-source-semantic-tags-candidates)
     (limit . 1)
-    (name . "semantic-tags")))
+    (name . "semantic-tags"))
+  "ca2+ semantic source for tag completion")
 
 
 (defvar ca-source-semantic-context-completions nil)
@@ -230,8 +234,6 @@
 	 (a (semantic-analyze-current-context p))
 	 (syms (if a (semantic-ia-get-completions a p)))
 	 (completions (mapcar 'semantic-tag-name syms)))
-    (message "updated %d completions" (length completions))
-
     (when completions
       (setq ca-source-semantic-context-completions completions)
       (or (car-safe (bounds-of-thing-at-point 'symbol))
@@ -239,8 +241,10 @@
 
 (defvar ca-source-semantic-context
   '((decider . ca-source-semantic-context-decider)
-    (candidates . (lambda(prefix) ca-source-semantic-context-completions))
-    (name . "semantic-context")))
+    (candidates . (lambda(prefix) 
+		    ca-source-semantic-context-completions))
+    (name . "semantic-context"))
+  "ca2+ source for semantic context completion")
 
 
 
