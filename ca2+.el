@@ -313,7 +313,7 @@
 	  (push (car item) ca-candidates))))))
 
 
-(defun ca-filter-candidates ()
+(defun ca-filter-candidates (&optional dont-filter-words)
   (let ((prefix (if ca-substring-match-on
 		    (replace-regexp-in-string 
 		     ca-substring-match-delimiter ".*"
@@ -324,7 +324,7 @@
       (if  (string-match (concat "^" prefix) (ca-candidate-string item))
 	  (push item ca-candidates)))
     (setq ca-candidates (nreverse ca-candidates))
-    (unless ca-substring-match-on
+    (unless (or (not dont-filter-words) ca-substring-match-on)
       (ca-filter-words))))
 
 
@@ -450,6 +450,13 @@
   (cdr-safe (assq 'separator ca-current-source)))
 
 
+(defun ca-source-candidate-info (candidate)
+  (let ((func (cdr-safe (assq 'info ca-current-source))))
+    (if func
+	(message "%s" (funcall func (cdr candidate)))
+      (message "%s" (cdr candidate)))))
+
+
 (defun ca-source-has-common-prefix ()
   (cdr-safe (assq 'common-prefix ca-current-source)))
 
@@ -497,9 +504,22 @@
     (while (and sources (null candidates))
       (let ((source (car sources)))
 	(setq ca-current-source source)
+	(message "check %s" (cdr-safe (assq 'name ca-current-source)))
 	(when (ca-grab-prefix)
+	  (message "prefix %s" ca-prefix)
+	  ;; check min prefix length
 	  (when (ca-source-check-limit)
-	    (setq candidates (ca-source-candidates))))
+	    ;; get candidates
+	    (setq candidates (ca-source-candidates))
+	    ;; filter candidates by prefix
+	    (when (cdr-safe (assq 'filter ca-current-source))
+	      (message "filter!")
+	      (let ((filtered-candidates nil))
+		(dolist (item candidates)
+		  (if  (string-match (concat "^" ca-prefix) 
+				     (ca-candidate-string item))
+		      (push item filtered-candidates)))
+		(setq candidates (nreverse filtered-candidates))))))
 	(setq sources (cdr sources))))
 
     (when candidates
@@ -519,9 +539,7 @@
       (setq ca-substring-match-on nil)
       (setq ca-all-candidates candidates)
       (setq ca-candidates ca-all-candidates)
-      (if (cdr-safe (assq 'filter ca-current-source))
-	  (ca-filter-candidates)
-	(ca-filter-words)))
+      (ca-filter-words))
     candidates))
 
 
@@ -616,8 +634,8 @@
     (message "No candidates found"))
   (if ca-candidates
       (let ((cand (nth ca-selection ca-candidates)))
-	(if (consp cand)
-	    (message "%s" (cdr cand))))))
+	(when (consp cand)
+	  (ca-source-candidate-info cand)))))
 
 
 (defun ca-cycle-backwards (&optional n)
