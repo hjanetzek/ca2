@@ -195,6 +195,7 @@
 (defun ca-source-semantic-tags-decider ()
   "Construct candidates from the list inside of tags.
    If candidates were found return the starting point of tag"
+  (message "ca-source-semantic-tags-decider")
   (let ((list
 	 (condition-case nil
 	     (mapcar (lambda (tag)
@@ -206,26 +207,33 @@
 					  (string= type "class"))
 				     (eq class 'function)
 				     (eq class 'variable))
-				 (list (list name type class))))))
+;;				 (list (list name type class tag))))))
+				 (cons name tag)))))
 		     (semantic-fetch-tags)))))
     (when list
-      (setq ca-source-semantic-tags-analysis (apply 'append list))
+      (message "got list")
+      (setq ca-source-semantic-tags-analysis (delq nil list))
       (or (car-safe (bounds-of-thing-at-point 'symbol))
 	  (point)))))
 
+
 (defun ca-source-semantic-tags-candidates (prefix)
-  (mapcar '(lambda (tag) (cons (car tag) tag)) 
-	  ca-source-semantic-tags-analysis))
+  ca-source-semantic-tags-analysis)
+
+
+(defun ca-source-semantic-tag-summary (candidate)
+  (semantic-format-tag-summarize candidate nil t))
 
 (defvar ca-source-semantic-tags-analysis nil)
 
 (defvar ca-source-semantic-tags
   '((decider . (lambda ()
-		 (if (looking-back "\w")
-		     ca-source-semantic-tags-decider)))
+		 (if (looking-back "\\w")
+		     (ca-source-semantic-tags-decider))))
     (candidates . ca-source-semantic-tags-candidates)
     (limit . 1)
-    (filter. t) ;; source provides all candidates: filter with prefix
+    (info . ca-source-semantic-tag-summary)
+    (filter . t) ;; source provides all candidates: filter with prefix
     (name . "semantic-tags"))
   "ca2+ semantic source for tag completion")
 
@@ -235,7 +243,9 @@
   (let* ((p (point))
 	 (a (semantic-analyze-current-context p))
 	 (syms (if a (semantic-ia-get-completions a p)))
-	 (completions (mapcar 'semantic-tag-name syms)))
+	 (completions (mapcar 
+		       '(lambda(tag) (cons (semantic-tag-name tag) tag))
+		       syms)))
     (when completions
       (setq ca-source-semantic-context-completions completions)
       (or (car-safe (bounds-of-thing-at-point 'symbol))
@@ -243,11 +253,12 @@
 
 
 (defun ca-source-semantic-context-candidates (prefix)
-  ca-source-semantic-context-completions)
+  ca-source-semantic-context-completions) 
 
 (defvar ca-source-semantic-context
   '((decider . ca-source-semantic-context-decider)
     (candidates . ca-source-semantic-context-candidates)
+    (info . ca-source-semantic-tag-summary)
     (filter . t)
     (name . "semantic-context"))
   "ca2+ source for semantic context completion")
