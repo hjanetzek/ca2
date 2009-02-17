@@ -195,7 +195,6 @@
 (defun ca-source-semantic-tags-decider ()
   "Construct candidates from the list inside of tags.
    If candidates were found return the starting point of tag"
-  (message "ca-source-semantic-tags-decider")
   (let ((list
 	 (condition-case nil
 	     (mapcar (lambda (tag)
@@ -207,11 +206,9 @@
 					  (string= type "class"))
 				     (eq class 'function)
 				     (eq class 'variable))
-;;				 (list (list name type class tag))))))
 				 (cons name tag)))))
 		     (semantic-fetch-tags)))))
     (when list
-      (message "got list")
       (setq ca-source-semantic-tags-analysis (delq nil list))
       (or (car-safe (bounds-of-thing-at-point 'symbol))
 	  (point)))))
@@ -222,15 +219,50 @@
 
 
 (defun ca-source-semantic-tag-summary (candidate)
-  (semantic-format-tag-summarize candidate nil t))
+ (semantic-format-tag-summarize candidate nil t))
+
+
+;; modified from semantic-format.el, creates yas-template
+(defun ca-source-semantic-format-tag-arguments (args formatter)
+  "Format the argument list ARGS with FORMATTER.
+FORMATTER is a function used to format a tag.
+COLOR specifies if color should be used."
+  (let ((out nil)
+	(cnt 1))
+    (while args
+      (push (concat "${" (number-to-string cnt) ":"
+		    (if (and formatter
+			     (semantic-tag-p (car args))
+			     (not (string= (semantic-tag-name (car args)) "")))
+			(funcall formatter (car args) nil nil)
+		      (semantic-format-tag-name-from-anything
+		       (car args) nil nil 'variable))
+		    "}")
+	    out)
+      (setq cnt (1+ cnt))
+      (setq args (cdr args)))
+    ;;semantic-function-argument-separator
+    (mapconcat 'identity (nreverse out) ", ")))
+
+
+(defun ca-source-semantic-tags-action (tag)
+  (if (and (semantic-tag-p tag)
+	   (eq (semantic-tag-class tag) 'function))
+      (yas/expand-snippet 
+       (point) (point) 
+       (concat "("
+	       (ca-source-semantic-format-tag-arguments
+		(semantic-tag-function-arguments tag)
+		#'semantic-format-tag-prototype)
+	       ")"
+	       (unless (looking-at ")") ";")))))
 
 (defvar ca-source-semantic-tags-analysis nil)
 
 (defvar ca-source-semantic-tags
-  '((decider . (lambda ()
-		 (if (looking-back "\\w")
-		     (ca-source-semantic-tags-decider))))
+  '((decider . ca-source-semantic-tags-decider)
     (candidates . ca-source-semantic-tags-candidates)
+    (action . ca-source-semantic-tags-action)
     (limit . 1)
     (info . ca-source-semantic-tag-summary)
     (filter . t) ;; source provides all candidates: filter with prefix
@@ -240,17 +272,18 @@
 
 (defvar ca-source-semantic-context-completions nil)
 (defun ca-source-semantic-context-decider ()
-  (let* ((p (point))
-	 (a (semantic-analyze-current-context p))
-	 (syms (if a (semantic-ia-get-completions a p)))
-	 (completions (mapcar 
-		       '(lambda(tag) (cons (semantic-tag-name tag) tag))
-		       syms)))
-    (when completions
-      (setq ca-source-semantic-context-completions completions)
-      (or (car-safe (bounds-of-thing-at-point 'symbol))
-	  p))))
-
+  (if (or (looking-back ".")
+	  (looking-back "->"))
+      (let* ((p (point))
+	     (a (semantic-analyze-current-context p))
+	     (syms (if a (semantic-ia-get-completions a p)))
+	     (completions (mapcar 
+			   '(lambda(tag) (cons (semantic-tag-name tag) tag))
+			   syms)))
+	(when completions
+	  (setq ca-source-semantic-context-completions completions)
+	  (or (car-safe (bounds-of-thing-at-point 'symbol))
+	      p)))))
 
 (defun ca-source-semantic-context-candidates (prefix)
   ca-source-semantic-context-completions) 
@@ -267,3 +300,4 @@
 
 
 (provide 'ca2+sources)
+
