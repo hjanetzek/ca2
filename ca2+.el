@@ -156,6 +156,7 @@
 (defvar ca-substring-match-delimiter " ")
 (defvar ca-substring-match-on nil)
 (defvar ca-initial-prefix nil)
+(defvar ca-current-candidate nil)
 
 (defvar ca-mode-map
   (let ((map (make-sparse-keymap)))
@@ -222,7 +223,8 @@
 	(setq ca-complete-word-on nil)
 	(setq ca-substring-match-on nil)
 	(setq ca-current-source nil)
-	(setq ca-initial-prefix nil))
+	(setq ca-initial-prefix nil)
+	(setq ca-current-candidate nil))
     (ca-finish)
     (remove-hook 'post-command-hook 'ca-post-command t)
     (remove-hook 'pre-command-hook 'ca-mode-pre-command t)))
@@ -272,7 +274,7 @@
   (when (looking-at " $") (delete-char 1))
 
   ;; TODO in which cases don not run hook?
-  (ca-source-action)
+  (ca-source-action ca-current-candidate)
   (setq ca-current-source nil))
 
 
@@ -402,9 +404,9 @@
 
 
 ;; TODO pass candidate?
-(defun ca-source-action ()
+(defun ca-source-action (candidate)
   (let ((action (cdr-safe (assq 'action ca-current-source))))
-    (if action (funcall action))))
+    (if action (funcall action (cdr-safe candidate)))))
 
 
 (defun ca-source-decider ()
@@ -746,8 +748,10 @@
 (defun ca-show-overlay ()
   (if ca-overlay
       (ca-hide-overlay))
-  (let* ((candidate (nth ca-selection ca-candidates))
-	 (candidate (if ca-substring-match-on candidate (ca-chop candidate)))
+  (setq ca-current-candidate (nth ca-selection ca-candidates))
+  (let* ((candidate (if ca-substring-match-on 
+			ca-current-candidate
+		      (ca-chop ca-current-candidate)))
 	 (prefix-length (length ca-prefix))
 	 (common-length (length ca-common))
 	 (beg (point)))
