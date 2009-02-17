@@ -243,6 +243,7 @@
 
 
 (defun ca-begin ()
+  (interactive)
   ;; workaround
   (when (looking-at "$") (insert-string " ") (backward-char))
 
@@ -383,6 +384,7 @@
 
      ;; other command
      ((not (memq this-command ca-continue-commands))
+      (setq ca-current-candidate nil)
       (setq ca-candidates nil)))
 
     (if (null ca-candidates)
