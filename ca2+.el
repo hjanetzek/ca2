@@ -262,7 +262,6 @@
 
 (defun ca-finish ()
   (interactive)
-  ;;(message "finish")
   (ca-disable-active-keymap)
   (setq ca-candidates nil)
   (setq ca-all-candidates nil)
@@ -290,7 +289,9 @@
   (if (or (not (ca-source-has-common-prefix))
 	  (<= (length ca-candidates)
 	      ca-how-many-candidates-to-show))
-      (setq ca-complete-word-on nil)
+      (progn
+	(setq ca-complete-word-on nil)
+	ca-candidates)
     (let ((cands nil)
 	  (len (length ca-prefix))
 	  cand end)
@@ -507,17 +508,14 @@
     (while (and sources (null candidates))
       (let ((source (car sources)))
 	(setq ca-current-source source)
-	(message "check %s" (cdr-safe (assq 'name ca-current-source)))
 	(when (ca-grab-prefix)
-	  (message "prefix %s" ca-prefix)
 	  ;; check min prefix length
 	  (when (ca-source-check-limit)
 	    ;; get candidates
 	    (setq candidates (ca-source-candidates))
-	    (setq ca-all-candidates candidates)
+	    (setq ca-all-candidates (copy-list candidates))
 	    ;; filter candidates by prefix
 	    (when (not (ca-source-is-filtered))
-	      (message "filter!")
 	      (let ((filtered-candidates nil))
 		(dolist (item candidates)
 		  (if  (string-match (concat "^" ca-prefix) 
@@ -539,7 +537,7 @@
 	      (setq candidates (delete word candidates))
 	      (if (not (eq len (length candidates)))
 		  (push word candidates)))))
-
+      
       (setq ca-initial-prefix ca-prefix)
       (setq ca-substring-match-on nil)
       ;;(setq ca-all-candidates candidates)
