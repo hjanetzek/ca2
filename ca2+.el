@@ -159,6 +159,7 @@
 (defvar ca-substring-match-on nil)
 (defvar ca-initial-prefix nil)
 (defvar ca-current-candidate nil)
+(defvar ca-description-window nil)
 
 (defvar ca-mode-map
   (let ((map (make-sparse-keymap)))
@@ -228,7 +229,8 @@
 	(setq ca-substring-match-on nil)
 	(setq ca-current-source nil)
 	(setq ca-initial-prefix nil)
-	(setq ca-current-candidate nil))
+	(setq ca-current-candidate nil)
+	(setq ca-description-window nil))
     (ca-finish)
     (remove-hook 'post-command-hook 'ca-post-command t)
     (remove-hook 'pre-command-hook 'ca-mode-pre-command t)))
@@ -275,6 +277,16 @@
   (setq ca-substring-match-on nil)
   (ca-hide-overlay)
   (ca-hide-pseudo-tooltip)
+  (when (and ca-description-window
+	     (window-live-p ca-description-window))
+    (let ((win (selected-window))
+	  (point (point)))
+      (message "kill window!")
+      (select-window ca-description-window)
+      (View-quit)
+      (setq ca-description-window nil)
+      (select-window win)
+      (goto-char point)))
   ;; workaround
   (when (looking-at " $") (delete-char 1))
 
@@ -379,11 +391,14 @@
       (setq ca-prefix (substring 
 		       ca-prefix 0
 		       (1- (length ca-prefix))))
-
+      
       (if (or (>= (length ca-prefix) (length ca-initial-prefix))
 	       (not (ca-source-is-filtered)))
 	  (ca-filter-candidates)
-	(ca-get-candidates))
+	(if (> (length ca-prefix) 0)
+	    (ca-get-candidates)
+	  (setq ca-candidates nil)
+	  (setq ca-current-candidate nil)))
       (setq ca-selection 0))
 
      ;; other command
@@ -690,9 +705,13 @@
   (unless ca-mode (error "ca-mode not enabled"))
   (if (and ca-current-candidate
 	   ca-current-source)
-      (let ((func (cdr-safe (assq 'describe ca-current-source))))
-        (if func
-	    (funcall func ca-current-candidate)))))
+      (let ((func (cdr-safe (assq 'describe ca-current-source)))
+	    (win (selected-window)))
+        (when func
+	  (funcall func ca-current-candidate)
+	  (when (not (eq win (selected-window)))
+	    (setq ca-description-window (selected-window))
+	    (select-window win))))))
       
     
 
