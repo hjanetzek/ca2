@@ -183,7 +183,7 @@
 
 (defvar ca-source-yasnippet
   '((candidates . ca-source-yasnippet-candidates)
-    (action     . yas/expand)
+    (action     . (lambda(candidate) (yas/expand)))
     (limit      . 1)
     (sorted     . t)
     (name       . "yasnippet"))
@@ -246,6 +246,9 @@ COLOR specifies if color should be used."
 
 
 (defun ca-source-semantic-tags-action (tag)
+  ;; (if (and (semantic-tag-p tag)
+  ;; 	   (eq (semantic-tag-class tag) 'function))
+  ;;     (srecode-semantic-insert-tag tag '(prototype))))
   (if (and (semantic-tag-p tag)
 	   (eq (semantic-tag-class tag) 'function))
       (yas/expand-snippet 
@@ -272,24 +275,25 @@ COLOR specifies if color should be used."
 
 (defvar ca-source-semantic-context-completions nil)
 (defun ca-source-semantic-context-decider ()
-  (if (or (looking-back ".")
-	  (looking-back "->"))
-      (let* ((p (point))
-	     (a (semantic-analyze-current-context p))
-	     (syms (if a (semantic-ia-get-completions a p)))
-	     (completions (mapcar 
-			   '(lambda(tag) (cons (semantic-tag-name tag) tag))
-			   syms)))
-	(when completions
-	  (setq ca-source-semantic-context-completions completions)
-	  (or (car-safe (bounds-of-thing-at-point 'symbol))
-	      p)))))
+  (let* ((p (point))
+	 (a (semantic-analyze-current-context p))
+	 (syms (if a (semantic-ia-get-completions a p)))
+	 (completions (mapcar 
+		       '(lambda(tag) (cons (semantic-tag-name tag) tag))
+		       syms)))
+    (when completions
+      (setq ca-source-semantic-context-completions completions)
+      (or (car-safe (bounds-of-thing-at-point 'symbol))
+	  p))))
 
 (defun ca-source-semantic-context-candidates (prefix)
-  ca-source-semantic-context-completions) 
+  ca-source-semantic-context-completions)
 
 (defvar ca-source-semantic-context
-  '((decider . ca-source-semantic-context-decider)
+  '((decider . (lambda ()
+		 (if (or (looking-back ".")
+			 (looking-back "->"))
+			 (ca-source-semantic-context-decider))))
     (candidates . ca-source-semantic-context-candidates)
     (info . ca-source-semantic-tag-summary)
     (filter . t)
@@ -297,7 +301,31 @@ COLOR specifies if color should be used."
   "ca2+ source for semantic context completion")
 
 
+(defun ca-source-semantic-args-decider ()
+  (let* ((overlays (overlays-at (point)))
+	 (overlay (find-if '(lambda(ov) 
+			      (overlay-get ov 'yas/snippet)) 
+			   overlays)))
+    (when overlay
+      (let* ((start (overlay-start overlay))
+	    (end   (overlay-end overlay))
+	    (reg (buffer-substring start end))
+	    (bla (delete-region start end))
+	    (prefix-start (ca-source-semantic-context-decider)))
+	(if prefix-start
+	    prefix-start
+	  (insert reg)
+	  (goto-char start)
+	  nil)))))
 
+
+(defvar ca-source-semantic-yas-arguments
+  '((decider . ca-source-semantic-args-decider)
+    (candidates . ca-source-semantic-context-candidates)
+    (info . ca-source-semantic-tag-summary)
+    (sort-by-occurence . t)
+    (name . "semantic-arguments"))
+  "ca2+ source for semantic argument completion")
 
 (provide 'ca2+sources)
 

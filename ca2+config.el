@@ -13,6 +13,7 @@
 			  '(emacs-lisp-mode 
 			    lisp-interaction-mode))
 
+;; TODO how to get modes from yasnippet?
 (ca-add-completion-source ca-source-yasnippet
 			  '(emacs-lisp-mode 
 			    lisp-interaction-mode
@@ -24,7 +25,10 @@
      (ca-add-completion-source ca-source-semantic-context
 			       '(c++-mode c-mode java-mode))
      (ca-add-completion-source ca-source-semantic-tags
-			       '(c++-mode c-mode java-mode))))
+			       '(c++-mode c-mode java-mode))
+     (ca-add-completion-source ca-source-semantic-yas-arguments
+			       '(c++-mode c-mode java-mode))
+     ))
 
 ;; general sources
 (ca-add-completion-source ca-source-filename
@@ -36,5 +40,4 @@
 (global-ca-mode 1)
 
 (provide 'ca2+config)
-
 
