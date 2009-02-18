@@ -14,13 +14,11 @@
 (defun smart-indent ()
   "Indents region if mark is active, or current line otherwise."
   (interactive)
-  (cond (mark-active 
-	 (indent-region (region-beginning) (region-end))
-	 t)
-	(t 
-	 (let ((prev-point (point)))
-	   (indent-for-tab-command)
-	   (not (eql (point) prev-point))))))
+  (if (not mark-active)
+      (let ((prev-point (point)))
+	(indent-for-tab-command)
+	(not (eql (point) prev-point)))
+    (indent-region (region-beginning) (region-end)) t))
 
 
 (global-set-key [(tab)] 'magic-tab)
