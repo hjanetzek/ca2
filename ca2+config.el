@@ -5,9 +5,10 @@
 
 ;; mode sources
 ;; sources are pushed on the list: load lower priority sources first
-
-(ca-add-completion-source ca-source-gtags
-			    '(c++-mode c-mode java-mode))
+(eval-after-load 'gtags
+  '(progn 
+     (ca-add-completion-source ca-source-gtags
+			       '(c++-mode c-mode java-mode))))
 
 (ca-add-completion-source ca-source-lisp
 			  '(emacs-lisp-mode 
