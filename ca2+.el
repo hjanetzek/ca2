@@ -34,14 +34,15 @@
 ;; changes:
 ;; + tab cycles through sources 
 ;; + substring matching: type ca-substring-match-delimiter (default 'space')
-;;   to start this mode. e.g. "a[tab] iso s[ret]" will insert:
+;;   to start this mode. e.g. "a[tab] 8 s[ret]" will insert:
 ;;   "add-log-iso8601-time-string". this feature also saves you from having to 
 ;;   type in not so easily reachable charachters like '-' or '_'
 ;; + expand-common expand the current selected candidate to next word boundary,
 ;;   if no common expansion is possible
 ;; + candidates are sorted by words in current buffer
 ;; 
-;; + thing-at-point decider can be used now, see 'filename' source
+;; + describe option: sources can provide a description function for candidates
+;;   bound to C-h, see elisp source 
 ;; + continue-after-insertion option, to get new completions after insertion, 
 ;;   see 'filename' source
 ;; + actions to execute after insertion, see yasnippet source
@@ -51,6 +52,7 @@
 ;;   is used to reduce the number of visible candidates, as the prefix will
 ;;   be shown only once. after expansion of prefix  all candidates with that 
 ;;   prefix are shown. see gtags and elisp sources.
+;; + thing-at-point decider can be used now, see 'filename' source
 ;;
 ;; TODO:
 ;; - add autoexpand
@@ -182,6 +184,7 @@
     (define-key map [(C left)] 'backward-char)
     (define-key map [(C right)] 'forward-char)
     (define-key map [tab] 'ca-next-source)
+    (define-key map [(C h)] 'ca-describe-candidate)
     (define-key map "\M-1" (ca-expand-number-macro 1))
     (define-key map "\M-2" (ca-expand-number-macro 2))
     (define-key map "\M-3" (ca-expand-number-macro 3))
@@ -201,7 +204,8 @@
   '(ca-expand-common ca-expand-top ca-expand-anything ca-cycle
     ca-cycle-backwards universal-argument
     ca-start-showing ca-match-abbrev
-    ca-expand-abbrev ca-next-source)
+    ca-expand-abbrev ca-next-source
+    ca-describe-candidate)
   "Commands as given by `last-command' that don't end extending.")
 
 
@@ -681,6 +685,36 @@
 	(error "No candidates found")))))
 
 
+(defun ca-describe-candidate ()
+  (interactive)
+  (unless ca-mode (error "ca-mode not enabled"))
+  (if (and ca-current-candidate
+	   ca-current-source)
+      (let ((func (cdr-safe (assq 'describe ca-current-source))))
+        (if func
+	    (funcall func ca-current-candidate)))))
+      
+    
+
+
+;;; keymap ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar ca-original-keymap nil)
+(make-variable-buffer-local 'ca-original-keymap)
+
+
+(defun ca-enable-active-keymap ()
+  (setcdr (assoc 'ca-mode minor-mode-map-alist)
+          ca-active-map))
+
+
+(defun ca-disable-active-keymap ()
+  (setcdr (assoc 'ca-mode minor-mode-map-alist)
+          ca-mode-map))
+
+
+;;; overlays ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defmacro ca-without-undo (&rest body)
   `(let ((buffer-undo-list nil)
          (inhibit-modification-hooks t))
@@ -723,29 +757,11 @@
     (setq page-size (min page-size ca-how-many-candidates-to-show)))
   (if t ;;(ca-tooltip-entire-names)
       (ca-sublist ca-candidates
-		       (ca-get-selection-offset page-size) page-size)
+		  (ca-get-selection-offset page-size) page-size)
     (mapcar 'ca-chop
 	    (ca-sublist ca-candidates
-			     (ca-get-selection-offset page-size) page-size))))
+			(ca-get-selection-offset page-size) page-size))))
 
-
-;;; keymap ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defvar ca-original-keymap nil)
-(make-variable-buffer-local 'ca-original-keymap)
-
-
-(defun ca-enable-active-keymap ()
-  (setcdr (assoc 'ca-mode minor-mode-map-alist)
-          ca-active-map))
-
-
-(defun ca-disable-active-keymap ()
-  (setcdr (assoc 'ca-mode minor-mode-map-alist)
-          ca-mode-map))
-
-
-;;; overlays ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun ca-show-overlay ()
   (if ca-overlay

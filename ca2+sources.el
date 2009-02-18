@@ -113,11 +113,23 @@
   (all-completions prefix obarray))
 
 
+(defun ca-source-lisp-describe (candidate)
+  (message "candidate %s" candidate)
+  (let ((symbol (intern candidate)))
+  (cond ((fboundp symbol)
+	 (describe-function symbol))
+	((symbolp symbol)
+	 (describe-variable symbol))
+	(t
+	 (message "no description")))))
+
+
 (defvar ca-source-lisp
   '((candidates . ca-source-lisp-candidates)
     (limit . 1)
     (sorted . nil)
     ;;(separator  . "-") ;; use this to strip common-prefix from tooltip
+    (describe . ca-source-lisp-describe)
     (sort-by-occurence . t)
     (common-prefix . t) ;; candidates have common prefixes,
                         ;; this is used to reduce the number 
@@ -191,7 +203,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; semantic ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; from http://www.emacswiki.org/emacs/AutoCompleteSources#toc3
+
 (defun ca-source-semantic-tags-decider ()
   "Construct candidates from the list inside of tags.
    If candidates were found return the starting point of tag"
