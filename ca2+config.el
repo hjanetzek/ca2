@@ -27,8 +27,7 @@
      (ca-add-completion-source ca-source-semantic-tags
 			       '(c++-mode c-mode java-mode))
      (ca-add-completion-source ca-source-semantic-yas-arguments
-			       '(c++-mode c-mode java-mode))
-     ))
+			       '(c++-mode c-mode java-mode))))
 
 ;; general sources
 (ca-add-completion-source ca-source-filename
