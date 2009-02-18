@@ -304,11 +304,9 @@ COLOR specifies if color should be used."
   ca-source-semantic-context-completions)
 
 (defvar ca-source-semantic-context
-  '((decider . (lambda ()
-		 (if (or (looking-back ".")
-			 (looking-back "->"))
-			 (ca-source-semantic-context-decider))))
+  '((decider . ca-source-semantic-context-decider)
     (candidates . ca-source-semantic-context-candidates)
+    (action . ca-source-semantic-tags-action)
     (info . ca-source-semantic-tag-summary)
     (filter . t)
     (name . "semantic-context"))
@@ -322,9 +320,9 @@ COLOR specifies if color should be used."
 			   overlays)))
     (when overlay
       (let* ((start (overlay-start overlay))
-	    (end   (overlay-end overlay))
+	    (end (overlay-end overlay))
 	    (reg (buffer-substring start end))
-	    (bla (delete-region start end))
+	    (foo (delete-region start end))
 	    (prefix-start (ca-source-semantic-context-decider)))
 	(if prefix-start
 	    prefix-start
