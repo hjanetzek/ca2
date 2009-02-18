@@ -26,6 +26,8 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; dabbrev ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defvar ca-source-dabbrev-candidates-max 40)
+;; taken from emacswiki CompletionUI
 (defun ca-source-dabbrev-candidates (prefix)
   "A wrapper for dabbrev that returns a list of expansion of
   PREFIX ordered in the same way dabbrev-expand find expansions.
@@ -42,7 +44,7 @@
 	expansion)
     ;; Search backward until we hit another buffer or reach max num
     (save-excursion
-      (while (and (< i 20)
+      (while (and (< i (/ ca-source-dabbrev-candidates-max 2))
 		  (setq expansion 
 			(dabbrev--find-expansion prefix 1 ignore-case))
 		  (not dabbrev--last-buffer))
@@ -59,7 +61,7 @@
       (setq dabbrev--last-table table))
     ;; Search forward in current buffer and after that in other buffers
     (save-excursion
-      (while (and (< j 20) 
+      (while (and (< j (/ ca-source-dabbrev-candidates-max 2))
 		  (setq expansion 
 			(dabbrev--find-expansion prefix -1 ignore-case)))
 	(setq all-expansions (nconc all-expansions (list expansion)))
