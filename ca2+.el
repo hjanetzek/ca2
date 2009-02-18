@@ -345,6 +345,8 @@
       (if  (string-match (concat "^" prefix) (ca-candidate-string item))
 	  (push item ca-candidates)))
     (setq ca-candidates (nreverse ca-candidates))
+    (unless ca-substring-match-on
+      (ca-source-sort-by-occurence))
     (unless (or (not dont-filter-words) ca-substring-match-on)
       (ca-filter-words))))
 
@@ -365,6 +367,7 @@
 	(unless (find-if '(lambda (item)
 			    (string-equal ca-prefix (ca-candidate-string item)))
 			 ca-all-candidates)
+	  (ca-sourc)
 	  (ca-filter-candidates)
 	  (setq ca-selection 0))))
 
@@ -393,13 +396,17 @@
 		       ca-prefix 0
 		       (1- (length ca-prefix))))
       
-      (if (or (>= (length ca-prefix) (length ca-initial-prefix))
-	       (not (ca-source-is-filtered)))
-	  (ca-filter-candidates)
-	(if (> (length ca-prefix) 0)
-	    (ca-get-candidates)
-	  (setq ca-candidates nil)
-	  (setq ca-current-candidate nil)))
+      (cond ((or (>= (length ca-prefix) (length ca-initial-prefix))
+		 (not (ca-source-is-filtered)))
+	     ;; prefix is longer as the initial prefix for 
+	     ;; which ca-all-candidates were collected or
+	     ;; source provided all possible candidates
+	     (ca-filter-candidates))
+	    ((> (length ca-prefix) 0)
+	     (ca-get-candidates))
+	    (t ;; abort 
+	     (setq ca-candidates nil)
+	     (setq ca-current-candidate nil)))
       (setq ca-selection 0))
 
      ;; other command
@@ -511,6 +518,16 @@
     (sort* cands 'string<)))
 
 
+(defun ca-source-sort-by-occurence ()
+  (if (cdr-safe (assq 'sort-by-occurence ca-current-source))
+      (let ((around (ca-words-in-buffer))
+	    (len (length ca-candidates)))
+	(dolist (word around)
+	  (setq ca-candidates (delete word ca-candidates))
+	  (if (not (eq len (length ca-candidates)))
+	      (push word ca-candidates))))))
+
+
 (defun ca-get-candidates (&optional next)
   (let* ((candidates nil)
 	 (sources (append
@@ -552,15 +569,6 @@
       (message "%s candidates" (cdr-safe (assq 'name ca-current-source)))
       (unless (ca-source-is-sorted)
 	(setq candidates (ca-sort-candidates candidates)))
-
-      ;; TODO this needs to be done after each char insertion/deletion
-      (if (cdr-safe (assq 'sort-by-occurence ca-current-source))
-	  (let ((around (delete ca-prefix (ca-words-in-buffer)))
-		(len (length candidates)))
-	    (dolist (word around)
-	      (setq candidates (delete word candidates))
-	      (if (not (eq len (length candidates)))
-		  (push word candidates)))))
       
       (setq ca-initial-prefix ca-prefix)
       (setq ca-substring-match-on nil)
@@ -568,6 +576,7 @@
       ;;(setq ca-candidates ca-all-candidates)
       (setq ca-candidates candidates)
       (ca-filter-words))
+
     candidates))
 
 
