@@ -28,8 +28,7 @@
 ;;
 ;; (require 'ca2+)
 ;; (require 'ca2+sources)
-;; (require 'ca2+config)
-;; (global-ca-mode 1)
+;; (require 'ca2+config) ;; change this to your needs
 
 ;; changes:
 ;; + tab cycles through sources 
@@ -40,6 +39,8 @@
 ;; + expand-common expand the current selected candidate to next word boundary,
 ;;   if no common expansion is possible
 ;; + candidates are sorted by words in current buffer
+;; + ac-styled source description: so it's really easy to port sources for
+;;   auto-complete
 ;; 
 ;; + describe option: sources can provide a description function for candidates
 ;;   bound to C-h, see elisp source 
