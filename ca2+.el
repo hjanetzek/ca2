@@ -182,8 +182,8 @@
     (define-key map [return] 'ca-expand-top)
     (define-key map [left] 'ca-expand-common)
     (define-key map "\M-h" 'ca-expand-common)
-    (define-key map [right] 'ca-finish)
-    (define-key map "\M-f" 'ca-finish)
+    (define-key map [right] 'ca-abort)
+    (define-key map "\M-f" 'ca-abort)
     (define-key map [tab] 'ca-next-source)
     (define-key map [(C left)] 'backward-char)
     (define-key map [(C right)] 'forward-char)
@@ -296,6 +296,13 @@
   ;; TODO in which cases don not run hook?
   (ca-source-action ca-current-candidate)
   (setq ca-current-source nil))
+
+
+(defun ca-abort ()
+  (interactive)
+  (setq ca-current-candidate nil)
+  (setq ca-current-source nil)
+  (ca-finish))
 
 
 (defun ca-filter-words-push (word candidate list)
@@ -417,7 +424,7 @@
       (setq ca-candidates nil)))
 
     (if (null ca-candidates)
-	(ca-finish)
+	(ca-finish) ;; abort?
 
       ;; finish when only one candidate is left which
       ;; is equal prefix and no new candidates can be found
@@ -425,7 +432,7 @@
 	       (string-equal ca-prefix
 			     (ca-candidate-string-nth 0))
 	       (not (ca-source-continue-after-expansion)))
-	  (ca-finish)
+	  (ca-finish) ;; abort?
 	;; update overlays
 	(if (>= ca-selection (length ca-candidates))
 	    (setq ca-selection 0))
