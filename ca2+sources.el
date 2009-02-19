@@ -119,8 +119,7 @@
 	 (message "no description")))))
 
 
-(defun ca-source-lisp-action (candidate)
-  Body)
+;;(defun ca-source-lisp-action (candidate))
 
 
 (defvar ca-source-lisp
@@ -128,7 +127,7 @@
     (candidates . ca-source-lisp-candidates)
     (limit      . 1)
     (describe   . ca-source-lisp-describe)
-    (action     . ca-source-lisp-action)
+    ;;(action     . ca-source-lisp-action)
     ;;(separator  . "-") ;; use this to strip common-prefix from tooltip
     (sort-by-occurence . t)
     (common-prefix . t)) ;; candidates have common prefixes,
@@ -234,7 +233,7 @@
 
 
 (defun ca-source-semantic-tag-summary (candidate)
- (semantic-format-tag-summarize candidate nil t))
+  (semantic-format-tag-summarize-with-file candidate nil t))
 
 
 ;; modified from semantic-format.el, creates yas-template
