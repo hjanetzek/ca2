@@ -161,6 +161,7 @@
 (defvar ca-initial-prefix nil)
 (defvar ca-current-candidate nil)
 (defvar ca-description-window nil)
+(defvar ca-highlight-parentheses-mode nil)
 
 (defvar ca-mode-map
   (let ((map (make-sparse-keymap)))
@@ -233,7 +234,8 @@
 	(setq ca-current-source nil)
 	(setq ca-initial-prefix nil)
 	(setq ca-current-candidate nil)
-	(setq ca-description-window nil))
+	(setq ca-description-window nil)
+	(setq ca-highlight-parentheses-mode nil))
     (ca-finish)
     (remove-hook 'post-command-hook 'ca-post-command t)
     (remove-hook 'pre-command-hook 'ca-mode-pre-command t)))
@@ -253,8 +255,13 @@
 
 (defun ca-begin ()
   (interactive)
-  ;; workaround
-  (when (looking-at "$") (insert-string " ") (backward-char))
+  ;; workarounds
+  (when (looking-at "$") 
+    (insert-string " ") (backward-char))
+  (when (and (symbolp highlight-parentheses-mode)
+	     highlight-parentheses-mode)
+    (setq ca-highlight-parentheses-mode t)
+    (highlight-parentheses-mode 0))
 
   (ca-get-candidates)
 
@@ -290,8 +297,11 @@
       (setq ca-description-window nil)
       (select-window win)
       (goto-char point)))
-  ;; workaround
+  ;; workarounds
   (when (looking-at " $") (delete-char 1))
+  (when ca-highlight-parentheses-mode
+    (setq ca-highlight-parentheses-mode nil)
+    (highlight-parentheses-mode 1))
 
   ;; TODO in which cases don not run hook?
   (ca-source-action ca-current-candidate)
@@ -376,7 +386,6 @@
 	(unless (find-if '(lambda (item)
 			    (string-equal ca-prefix (ca-candidate-string item)))
 			 ca-all-candidates)
-	  (ca-sourc)
 	  (ca-filter-candidates)
 	  (setq ca-selection 0))))
 
@@ -425,7 +434,6 @@
 
     (if (null ca-candidates)
 	(ca-finish) ;; abort?
-
       ;; finish when only one candidate is left which
       ;; is equal prefix and no new candidates can be found
       (if (and (= (length ca-candidates) 1)
@@ -623,6 +631,8 @@
   (interactive)
   (setq ca-candidates nil)
   (setq ca-all-candidates nil)
+  (setq ca-current-candidate nil)
+  (setq ca-selection 0)
   (ca-get-candidates :next))
 
 
