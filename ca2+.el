@@ -287,16 +287,7 @@
   (setq ca-substring-match-on nil)
   (ca-hide-overlay)
   (ca-hide-pseudo-tooltip)
-  (when (and ca-description-window
-	     (window-live-p ca-description-window))
-    (let ((win (selected-window))
-	  (point (point)))
-      (message "kill window!")
-      (select-window ca-description-window)
-      (View-quit)
-      (setq ca-description-window nil)
-      (select-window win)
-      (goto-char point)))
+  (ca-kill-description-buffer)
   ;; workarounds
   (when (looking-at " $") (delete-char 1))
   (when ca-highlight-parentheses-mode
@@ -313,6 +304,18 @@
   (setq ca-current-candidate nil)
   (setq ca-current-source nil)
   (ca-finish))
+
+
+(defun ca-kill-description-buffer ()
+  (when (and ca-description-window
+	     (window-live-p ca-description-window))
+    (let ((win (selected-window))
+	  (point (point)))
+      (select-window ca-description-window)
+      (View-quit)
+      (setq ca-description-window nil)
+      (select-window win)
+      (goto-char point))))
 
 
 (defun ca-filter-words-push (word candidate list)
@@ -408,24 +411,30 @@
       (ca-filter-candidates)
       (setq ca-selection 0))
 
-     ;; char deleted
+     ;; char deleted 
+     ;; TODO restructure this
      ((eq (- (point) ca-last-command-change) -1)
-      (setq ca-prefix (substring 
-		       ca-prefix 0
-		       (1- (length ca-prefix))))
+      (if (= (length ca-prefix) 0)
+	  (progn 
+	    (setq ca-candidates nil)
+	    (setq ca-current-candidate nil))
+
+	(setq ca-prefix (substring 
+			 ca-prefix 0
+			 (1- (length ca-prefix))))
       
-      (cond ((or (>= (length ca-prefix) (length ca-initial-prefix))
-		 (not (ca-source-is-filtered)))
-	     ;; prefix is longer as the initial prefix for 
-	     ;; which ca-all-candidates were collected or
-	     ;; source provided all possible candidates
-	     (ca-filter-candidates))
-	    ((> (length ca-prefix) 0)
-	     (ca-get-candidates))
-	    (t ;; abort 
-	     (setq ca-candidates nil)
-	     (setq ca-current-candidate nil)))
-      (setq ca-selection 0))
+	(cond ((or (>= (length ca-prefix) (length ca-initial-prefix))
+		   (not (ca-source-is-filtered)))
+	       ;; prefix is longer as the initial prefix for 
+	       ;; which ca-all-candidates were collected or
+	       ;; source provided all possible candidates
+	       (ca-filter-candidates))
+	      ((> (length ca-prefix) 0)
+	       (ca-get-candidates))
+	      (t ;; abort 
+	       (setq ca-candidates nil)
+	       (setq ca-current-candidate nil)))
+	(setq ca-selection 0)))
 
      ;; other command
      ((not (memq this-command ca-continue-commands))
@@ -629,6 +638,7 @@
 
 (defun ca-next-source ()
   (interactive)
+  (ca-kill-description-buffer)
   (setq ca-candidates nil)
   (setq ca-all-candidates nil)
   (setq ca-current-candidate nil)
