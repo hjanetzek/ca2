@@ -76,13 +76,6 @@
   "ca2+ dabbrev source")
 
 
-;; (defun ca-dabbrev-completion-func (prefix)
-;;   (require 'dabbrev)
-;;   (let ((dabbrev-check-other-buffers))
-;;     (dabbrev--reset-global-variables)
-;;     (dabbrev--find-all-expansions prefix nil)))
-
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; filename ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -126,18 +119,23 @@
 	 (message "no description")))))
 
 
+(defun ca-source-lisp-action (candidate)
+  Body)
+
+
 (defvar ca-source-lisp
-  '((candidates . ca-source-lisp-candidates)
-    (limit . 1)
-    (sorted . nil)
+  '((name       . "elisp")
+    (candidates . ca-source-lisp-candidates)
+    (limit      . 1)
+    (describe   . ca-source-lisp-describe)
+    (action     . ca-source-lisp-action)
     ;;(separator  . "-") ;; use this to strip common-prefix from tooltip
-    (describe . ca-source-lisp-describe)
     (sort-by-occurence . t)
-    (common-prefix . t) ;; candidates have common prefixes,
-                        ;; this is used to reduce the number 
-                        ;; of visible candidates, instead
-                        ;; the prefixes are shown.
-    (name . "elisp"))
+    (common-prefix . t)) ;; candidates have common prefixes,
+                         ;; this is used to reduce the number 
+                         ;; of visible candidates, instead
+                         ;; the prefixes are shown.
+
   "ca2+ lisp symbol source")
 
 
@@ -206,6 +204,9 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; semantic ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; sematinc tags completion
+(defvar ca-source-semantic-tags-analysis nil)
+
 (defun ca-source-semantic-tags-decider ()
   "Construct candidates from the list inside of tags.
    If candidates were found return the starting point of tag"
@@ -260,21 +261,19 @@ COLOR specifies if color should be used."
 
 
 (defun ca-source-semantic-tags-action (tag)
-  ;; (if (and (semantic-tag-p tag)
-  ;; 	   (eq (semantic-tag-class tag) 'function))
-  ;;     (srecode-semantic-insert-tag tag '(prototype))))
   (if (and (semantic-tag-p tag)
 	   (eq (semantic-tag-class tag) 'function))
       (yas/expand-snippet 
        (point) (point) 
-       (concat "("
-	       (ca-source-semantic-format-tag-arguments
-		(semantic-tag-function-arguments tag)
-		#'semantic-format-tag-prototype)
-	       ")"
-	       (unless (looking-at ")") ";")))))
+       (concat 
+	"("
+	(ca-source-semantic-format-tag-arguments
+	 (semantic-tag-function-arguments tag)
+	 #'semantic-format-tag-prototype)
+	")"
+	(unless (or (looking-at "[[:space:]]*)")
+		    (looking-at "[[:space:]]*,")) ";")))))
 
-(defvar ca-source-semantic-tags-analysis nil)
 
 (defvar ca-source-semantic-tags
   '((decider . ca-source-semantic-tags-decider)
@@ -287,7 +286,10 @@ COLOR specifies if color should be used."
   "ca2+ semantic source for tag completion")
 
 
+;; semantic context completion
 (defvar ca-source-semantic-context-completions nil)
+
+
 (defun ca-source-semantic-context-decider ()
   (let* ((p (point))
 	 (a (semantic-analyze-current-context p))
@@ -300,8 +302,10 @@ COLOR specifies if color should be used."
       (or (car-safe (bounds-of-thing-at-point 'symbol))
 	  p))))
 
+
 (defun ca-source-semantic-context-candidates (prefix)
   ca-source-semantic-context-completions)
+
 
 (defvar ca-source-semantic-context
   '((decider . ca-source-semantic-context-decider)
@@ -313,6 +317,9 @@ COLOR specifies if color should be used."
   "ca2+ source for semantic context completion")
 
 
+;; semantic completion for function argument templates, inserted 
+;; text needs to be deleted before semantic-analyze-current-context
+;; can do its work
 (defun ca-source-semantic-args-decider ()
   (let* ((overlays (overlays-at (point)))
 	 (overlay (find-if '(lambda(ov) 
@@ -338,6 +345,7 @@ COLOR specifies if color should be used."
     (sort-by-occurence . t)
     (name . "semantic-arguments"))
   "ca2+ source for semantic argument completion")
+
 
 (provide 'ca2+sources)
 
