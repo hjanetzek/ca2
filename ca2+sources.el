@@ -244,15 +244,16 @@ COLOR specifies if color should be used."
   (let ((out nil)
 	(cnt 1))
     (while args
-      (push (concat "${" (number-to-string cnt) ":"
-		    (if (and formatter
-			     (semantic-tag-p (car args))
-			     (not (string= (semantic-tag-name (car args)) "")))
-			(funcall formatter (car args) nil nil)
-		      (semantic-format-tag-name-from-anything
-		       (car args) nil nil 'variable))
-		    "}")
-	    out)
+      (unless (equal (semantic-tag-name (car args)) "")
+	  (push (concat "${" (number-to-string cnt) ":"
+			(if (and formatter
+				 (semantic-tag-p (car args))
+				 (not (string= (semantic-tag-name (car args)) "")))
+			    (funcall formatter (car args) nil nil)
+			  (semantic-format-tag-name-from-anything
+			   (car args) nil nil 'variable))
+			"}")
+		out))
       (setq cnt (1+ cnt))
       (setq args (cdr args)))
     ;;semantic-function-argument-separator
