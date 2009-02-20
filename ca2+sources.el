@@ -270,8 +270,7 @@ COLOR specifies if color should be used."
 	 (semantic-tag-function-arguments tag)
 	 #'semantic-format-tag-prototype)
 	")"
-	(unless (or (looking-at "[[:space:]]*)")
-		    (looking-at "[[:space:]]*,")) ";")))))
+	(unless(looking-at "[[:space:]]*\\()\\|,\\)") ";")))))
 
 
 (defvar ca-source-semantic-tags
