@@ -125,6 +125,7 @@
 ;;   :group 'ca-mode
 ;;   :type '(choice (const :tag "Off" nil)
 ;;                  (const :tag "On" t)))
+
 (defvar  ca-tooltip-entire-names t)
 
 (defcustom ca-how-many-candidates-to-show 15
@@ -258,7 +259,7 @@
   ;; workarounds
   (when (looking-at "$") 
     (insert-string " ") (backward-char))
-  (when (and (symbolp highlight-parentheses-mode)
+  (when (and (fboundp 'highlight-parentheses-mode)
 	     highlight-parentheses-mode)
     (setq ca-highlight-parentheses-mode t)
     (highlight-parentheses-mode 0))
