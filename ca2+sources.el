@@ -109,7 +109,6 @@
 
 
 (defun ca-source-lisp-describe (candidate)
-  (message "candidate %s" candidate)
   (let ((symbol (intern candidate)))
   (cond ((fboundp symbol)
 	 (describe-function symbol))
@@ -208,7 +207,6 @@
 (defvar ca-source-semantic-tags-analysis nil)
 
 (defun ca-source-semantic-tags-decider ()
-  (message "ca-source-semantic-tags-decider")
   "Construct candidates from the list inside of tags.
    If candidates were found return the starting point of tag"
   (let ((list
@@ -262,19 +260,25 @@ COLOR specifies if color should be used."
     (mapconcat 'identity (nreverse out) ", ")))
 
 
-(defun ca-source-semantic-tags-action (tag)
-  (when (semantic-tag-p tag)
-    (cond 
-      ((eq (semantic-tag-class tag) 'function)
-      (yas/expand-snippet 
-       (point) (point) 
-       (concat 
-	"(" (ca-source-semantic-format-tag-arguments
-	     (semantic-tag-function-arguments tag)
-	     #'semantic-format-tag-prototype) ")"
-	(unless(looking-at "[[:space:]]*\\()\\|,\\)") ";"))))
-      )))
-
+(defun ca-source-semantic-tags-action (candidate)
+  (let ((tag (cdr-safe candidate)))
+    (when (semantic-tag-p tag)
+      (cond 
+       ((eq (semantic-tag-class tag) 'function)
+	(yas/expand-snippet 
+	 (point) (point) 
+	 (concat 
+	  "(" (ca-source-semantic-format-tag-arguments
+	       (semantic-tag-function-arguments tag)
+	       #'semantic-format-tag-prototype) ")"
+	  (unless(looking-at "[[:space:]]*\\()\\|,\\)") ";"))))
+       ;; expansion was called for a complete variable name
+       ((and (not (memq this-command (cdr ca-continue-commands)))
+	     (eq (semantic-tag-class tag) 'variable))
+	(let ((candidates (ca-source-semantic-continue candidate)))
+	  (when candidates
+	    (message "got cands")
+	    (ca-begin candidates ca-source-semantic-context))))))))
 
 
 (defvar ca-source-semantic-tags
@@ -290,40 +294,47 @@ COLOR specifies if color should be used."
 
 ;; semantic context completion
 (defvar ca-source-semantic-context-completions nil)
-(defvar ca-source-semantic-context-scope nil)
+(defvar ca-source-semantic-context-cntxt nil)
 
 
 (defun ca-source-semantic-context-decider ()
-  (message "ca-source-semantic-context-decider")
   (let* ((p (point))
 	 (a (semantic-analyze-current-context p))
-	 ;;(syms (if a (semantic-ia-get-completions a p)))
+	 ;; XXX make this an option 
+	 ;; (syms (if a (semantic-ia-get-completions a p)))
 	 (syms (if a (semantic-analyze-possible-completions a)))
 	 (completions (mapcar 
 		       '(lambda(tag) (cons (semantic-tag-name tag) tag))
 		       syms)))
     (when completions
-      (setq ca-source-semantic-context-scope (oref a scope))
+      (setq ca-source-semantic-context-cntxt a)
       (setq ca-source-semantic-context-completions completions)
       (or (car-safe (bounds-of-thing-at-point 'symbol))
 	  p))))
 
 
 (defun ca-source-semantic-continue (candidate)
-  (message "ca-source-semantic-continue")
   (let ((tag (cdr-safe candidate)))
     (when (and tag (eq (semantic-tag-class tag) 'variable))
       (let* ((ttype (semantic-tag-type tag))
 	      type members)
 
 	(while (and ttype (listp ttype))
-	  (message "check %s" type)
 	  ;; find parent of variable
 	  (setq type (semantic-analyze-find-tag (car ttype)))
 	  ;; check wheter the parent is typedef, TODO class, whatever
 	  (setq ttype (semantic-tag-get-attribute type :typedef)))
-	
-	(when (and type (setq members (semantic-tag-type-members type)))
+
+	(when (and type (setq members (semantic-tag-type-members type)))	
+	  ;; sort members by reachability
+	  (if (and (boundp 'semantic-analyze-cache-tags)
+		   semantic-analyze-cache-tags 
+		   ca-source-semantic-context-cntxt)
+	      (let* ((a ca-source-semantic-context-cntxt)
+		    (desired-type (semantic-analyze-type-constraint a)))
+		(setq members (ca-semantic-completions
+			       type
+			       desired-type))))
 
 	  (if (semantic-tag-get-attribute tag :pointer)
 	      (insert "->") (insert "."))
@@ -342,8 +353,9 @@ COLOR specifies if color should be used."
     (action . ca-source-semantic-tags-action)
     (info . ca-source-semantic-tag-summary)
     (continue . ca-source-semantic-continue)
+    (sorted . t)
     (trigger . ".")
-    (filter . t)
+    ;;(filter . t)
     (name . "semantic-context"))
   "ca2+ source for semantic context completion")
 
@@ -374,6 +386,7 @@ COLOR specifies if color should be used."
     (candidates . ca-source-semantic-context-candidates)
     (info . ca-source-semantic-tag-summary)
     (continue . ca-source-semantic-continue)
+    (sorted . t)
     ;;(sort-by-occurence . t)
     (name . "semantic-arguments"))
   "ca2+ source for semantic argument completion")
