@@ -43,7 +43,6 @@ in a buffer."
   (setq semantic-analyze-cache-mtype-alist nil))
 
 
-(defvar semantic-analyze-possible-completions-from-cache nil)
 (defvar semantic-analyze-cache-funcs/vars nil)
 (defvar semantic-analyze-cache-mtype-alist nil)
 (defvar semantic-analyze-cache-tags nil)
@@ -66,8 +65,16 @@ Argument CONTEXT is an object specifying the locally derived context."
 	 (func/var-alist nil)
 	 (mtypes-alist)
 	 (use-cache nil))
+    
+    ;; XXX is this the right way?
+    (set (make-local-variable 'semantic-analyze-cache-tags) 
+	 semantic-analyze-cache-tags)
+    (set (make-local-variable 'semantic-analyze-cache-mtype-alist)
+	 semantic-analyze-cache-mtype-alist)
+    (set (make-local-variable 'semantic-analyze-cache-funcs/vars)
+	 semantic-analyze-cache-funcs/vars)
 
-    (setq debug t)
+    (setq debug nil)
     ;; Calculate what our prefix string is so that we can
     ;; find all our matching text.
     (setq completetext (car (reverse prefix)))
@@ -105,18 +112,21 @@ Argument CONTEXT is an object specifying the locally derived context."
       			  (format "%S" errprefix)))))))
 
     (when can-complete
-      
       (if semantic-analyze-cache-tags
 	  (progn 
 	    (message "use cached tags")
 	    (setq c semantic-analyze-cache-tags))
 	(message "fetch tags for %s" completetext)
-;;	(setq c (semantic-analyze-find-tags-by-prefix completetext)
-	(setq c (semantic-fetch-tags))
+	;; (setq c (nconc
+	;; 	 (semantic-find-tags-by-class 'type (current-buffer))
+	;; 	 (semantic-find-tags-by-class 'function (current-buffer))
+	;; 	 (semantic-find-tags-by-class 'variable (current-buffer))))
+	(setq c (semantic-analyze-find-tags-by-prefix completetext))
+	;;(setq c (semantic-fetch-tags))
 	;; we fetched all global tags 
 	(if (zerop (length completetext))
 	    (setq semantic-analyze-cache-tags c)))
- 
+
       (if completetexttype
 	  (setq localc (semantic-tag-type-members completetexttype))
 	(setq localc 
@@ -154,7 +164,6 @@ Argument CONTEXT is an object specifying the locally derived context."
 	;; Loop over all the found matches, and catagorize them
 	;; as being possible features.
 	(while origc
-	  (message "test %s" (car origc))
 	  (cond
 	   ;; Strip operators
 	   ((semantic-tag-get-attribute (car origc) :operator-flag)
@@ -167,12 +176,19 @@ Argument CONTEXT is an object specifying the locally derived context."
 		     (semantic-tag-get-attribute (car origc) :destructor-flag)))
 	    nil)
 
+
+	   ;;XXX check this! (semantic-analyze-type-constants))
+
 	   ;; If there is a desired type, we need a pair of restrictions
-	   (desired-type
+	   ((and desired-type 
+		 (not (semantic-tag-variable-constant-p (car origc)))
+		 (not (semantic-tag-include-system-p (car origc)))
+		 (not (semantic-tag-of-class-p (car origc) 'include)))
 	    (let* ((tag (car origc))
 		   (members (semantic-tag-type-members tag))
 		   (ttype (semantic-tag-type tag))
 		   (tname (semantic-tag-name tag))
+		   (class (semantic-tag-class tag))
 		   (typedef (car-safe (semantic-tag-get-attribute tag :typedef)))
 		   (dtype (car desired-type))
 		   found mtype mtypes)
@@ -187,19 +203,18 @@ Argument CONTEXT is an object specifying the locally derived context."
 	       (members
 		(dolist (member members)
 		  (let ((mtype (semantic-tag-type member)))
-
 		    (if (listp mtype)
 			(setq mtype (car mtype)))
 		    (let ((m (assoc mtype mtypes-alist)))
 		      (unless m
 			(setq m (cons mtype nil))
 			(setq mtypes-alist (cons m mtypes-alist)))
-		      (setcdr m (cons (caar origc) (cdr m)))))))
+		      (setcdr m (cons tname (cdr m)))))))
 
 	       (t ;;(not (semantic-tag-variable-constant-p tag))
 		(if (listp ttype)
 		    (setq ttype (car ttype)))
-	        (let ((m (assoc ttype func/var-alist)))
+		(let ((m (assoc ttype func/var-alist)))
 	          (unless m
 		    (setq m (cons ttype nil))
 		    (setq func/var-alist (cons m func/var-alist)))
@@ -220,8 +235,11 @@ Argument CONTEXT is an object specifying the locally derived context."
       (when (or completetexttype 
 		(zerop (length completetext)))
 	(setq c localc))
-      
-      (setq c (ca-semantic-completions completetexttype 
+
+      (dolist (func/vars func/var-alist)
+	(setcdr func/vars (semantic-unique-tag-table-by-name (cdr func/vars))))
+
+      (setq c (ca-semantic-completions-1 completetexttype 
 				       desired-type 
 				       desired-class
 				       mtypes-alist
@@ -230,59 +248,84 @@ Argument CONTEXT is an object specifying the locally derived context."
       ;; (when desired-class
       ;; 	(setq c (semantic-analyze-tags-of-class-list c desired-class)))
 
-      ;; Pull out trash.
-      ;; NOTE TO SELF: Is this too slow?
-      ;; OTHER NOTE: Do we not want to strip duplicates by name and
-      ;; only by position?  When are duplicate by name but not by tag
-      ;; useful?
-      (setq c (semantic-unique-tag-table-by-name c))
+      ;; (setq c (semantic-unique-tag-table-by-name c))
 
       ;; All done!
       c)))
 
 
+(defun ca-semantic-completions (completetexttype desired-type)
+  ;;(message "ca-semantic-completions \n%s\n%s" completetexttype desired-type)
+  (ca-semantic-completions-1 completetexttype
+			     desired-type 
+			     nil ;;desired-class
+			     semantic-analyze-cache-mtype-alist
+			     semantic-analyze-cache-funcs/vars
+			     nil))
 
-(defun ca-semantic-completions (completetexttype 
-				desired-type 
-				desired-class
-				mtypes-alist
-				func/var-alist
-				c)
-  (let ((accept desired-type))
-    (setq debug nil)
-    (when (or desired-type completetexttype)
-      (let ((tmp accept))
-	(while tmp
-	  (let* ((mtype (car tmp))
-		 (bla (assoc mtype mtypes-alist)))
+(defun ca-semantic-completions-1 (completetexttype 
+				  desired-type 
+				  desired-class
+				  mtypes-alist
+				  func/var-alist
+				  local-tags)
+
+  ;; XXX give metasyntactic variables correct names!
+
+  (let* ((accept desired-type)
+	 (tmp accept)
+	 (tags nil))
+
+    (when (or desired-type completetexttype) ;;XXX  move this check up!
+      (while tmp
+	(let* ((mtype (car tmp))
+	       (bla (assoc mtype mtypes-alist)))
+	  (unless (null mtype)
 	    (dolist (blub (cdr bla))
-	      (when (not (member blub accept))
+	      (when (and blub (not (member blub accept)))
 		(setq tmp (append tmp (list blub)))
-		(setq accept (cons blub accept)))))
-	  (setq tmp (cdr tmp)))))
+		(setq accept (cons blub accept))))))
+	(setq tmp (cdr tmp))))
 
-    (when (and desired-type (not completetexttype))
+    (setq accept (delete nil accept))
+    
+    (when desired-type 
       ;; add all functions and variables that have a type from which 
       ;; desired-type is reachable
-      (setq c nil)
       (dolist (cand accept)
 	(let ((funcs/vars (assoc cand func/var-alist)))
 	  (dolist (blub (cdr-safe funcs/vars)) ;; safe?
 	    (when blub
-	      (setq c (cons  blub c)))))))
+	      (if (member blub local-tags)
+		  (setq tags (cons blub tags))
+		(setq tags (append tags (list blub)))))))))
 
-   
+    ;; XXX why start this at all in the first place if 
+    ;; completetexttype has no members?
     (when completetexttype 
-      (setq tmp c)
-      (setq c nil)
-      (let ((members (semantic-tag-type-members completetexttype)))
+      (setq tmp tags)
+      (setq tags nil)
+      (let ((members (semantic-tag-type-members completetexttype))
+	    reachable unreachable)
 	(when members
-	  (dolist (member members) 
-	    (if (memql member tmp)
-		(setq c (cons member c))
-	      ;;(setq c (append (list member) c))
-	      )))))
-    c))
+	  (dolist (member members)
+	    (cond 
+	     ;; matches desired type
+	     ((let ((ttype(semantic-tag-type member)))
+	       (when (or (equal ttype (car desired-type))
+		       (and (listp ttype) 
+			    (equal (car ttype) (car desired-type))))
+		 (setq tags (cons member tags)))))
+
+	     ;; desired type is reachable
+	     ((memql member tmp)
+	      (setq reachable (cons member reachable)))
+
+	     ;; deisred type is not reachable
+	     (t
+	      (setq unreachable (cons member unreachable)))))
+	  (setq tags (append tags reachable unreachable)))))
+    tags))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; semantic-analyze-fcn.el
@@ -298,9 +341,10 @@ Almost all searches use the same arguments."
   (if (and (fboundp 'semanticdb-minor-mode-p)
            (semanticdb-minor-mode-p))
       ;; Search the database & concatenate all matches together.
-      (semanticdb-strip-find-results
-       (semanticdb-find-tags-for-completion prefix)
-       'name)
+      ;;(semanticdb-strip-find-results
+       (semanticdb-fast-strip-find-results
+       (semanticdb-find-tags-for-completion prefix))
+    ;;'name)
     ;; Search just this file because there is no DB available.
     (semantic-find-tags-for-completion
      prefix (current-buffer))))
@@ -321,8 +365,7 @@ Argument SCOPE is the scope object with additional items in which to search."
       (setq nexttype (semantic-analyze-dereference-metatype lasttype scope lasttypedeclaration))
       (setq idx (1+ idx))
       (when (> idx 20) (error "Possible metatype recursion for %S"
-  			      (semantic-tag-name lasttype)))
-      )
+  			      (semantic-tag-name lasttype))))
     lasttype))
 
 
@@ -330,43 +373,43 @@ Argument SCOPE is the scope object with additional items in which to search."
 
 
 
-(defun ca-semantic-completion-build-cache ()
-  (let ((tags (semantic-analyze-find-tags-by-prefix "")))
-    (setq semantic-analyze-cache-tags tags)
-    (dolist (tag tags)
-      (let* ((members (semantic-tag-type-members tag))
-	     (ttype (semantic-tag-type tag))
-	     (tname (semantic-tag-name tag))
-	     (typedef (car-safe (plist-get (caddr tag) :typedef)))
-	     (dtype (car desired-type))
-	     found mtype mtypes)
-	(cond 
-	 (typedef
-	  (let* ((m (assoc typedef typedef-alist)))
-	    (unless m 
-	      (setq m (cons typedef nil))
-	      (setq typedef-alist (cons m typedef-alist)))
-	    (setcdr m (cons tname (cdr m)))))
+;; (defun ca-semantic-completion-build-cache ()
+;;   (let ((tags (semantic-analyze-find-tags-by-prefix "")))
+;;     (setq semantic-analyze-cache-tags tags)
+;;     (dolist (tag tags)
+;;       (let* ((members (semantic-tag-type-members tag))
+;; 	     (ttype (semantic-tag-type tag))
+;; 	     (tname (semantic-tag-name tag))
+;; 	     (typedef (car-safe (plist-get (caddr tag) :typedef)))
+;; 	     (dtype (car desired-type))
+;; 	     found mtype mtypes)
+;; 	(cond 
+;; 	 (typedef
+;; 	  (let* ((m (assoc typedef typedef-alist)))
+;; 	    (unless m 
+;; 	      (setq m (cons typedef nil))
+;; 	      (setq typedef-alist (cons m typedef-alist)))
+;; 	    (setcdr m (cons tname (cdr m)))))
+;; 	 (members
+;; 	  ;;(message "members %s" (listp ttype))
+;; 	  (dolist (member members)
+;; 	    (let ((mtype (semantic-tag-type member)))
+;; 	      (if (listp mtype)
+;; 		  (setq mtype (car mtype)))
+;; 	      (let ((m (assoc mtype mtypes-alist)))
+;; 		(unless m
+;; 		  (setq m (cons mtype nil))
+;; 		  (setq mtypes-alist (cons m mtypes-alist)))
+;; 		(setcdr m (cons (car tag) (cdr m)))))))
+;; 	 (t ;;(not (semantic-tag-variable-constant-p tag))
+;; 	  (if (listp ttype)
+;; 	      (setq ttype (car ttype)))
+;; 	  (let ((m (assoc ttype func/var-alist)))
+;; 	    (unless m
+;; 	      (setq m (cons ttype nil))
+;; 	      (setq func/var-alist (cons m func/var-alist)))
+;; 	    (setcdr m (cons tag (cdr m))))))))
+;;     ))
 
-	 (members
-	  ;;(message "members %s" (listp ttype))
-	  (dolist (member members)
-	    (let ((mtype (semantic-tag-type member)))
 
-	      (if (listp mtype)
-		  (setq mtype (car mtype)))
-	      (let ((m (assoc mtype mtypes-alist)))
-		(unless m
-		  (setq m (cons mtype nil))
-		  (setq mtypes-alist (cons m mtypes-alist)))
-		(setcdr m (cons (car tag) (cdr m)))))))
-
-	 (t ;;(not (semantic-tag-variable-constant-p tag))
-	  (if (listp ttype)
-	      (setq ttype (car ttype)))
-	  (let ((m (assoc ttype func/var-alist)))
-	    (unless m
-	      (setq m (cons ttype nil))
-	      (setq func/var-alist (cons m func/var-alist)))
-	    (setcdr m (cons tag (cdr m))))))))
-    ))
+(provide 'ca2+semantic)
