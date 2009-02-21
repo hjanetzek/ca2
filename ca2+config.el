@@ -23,6 +23,7 @@
 (eval-after-load 'semantic
   '(progn 
      (require 'semantic-ia)
+     (require 'ca2+semantic)
      (ca-add-completion-source ca-source-semantic-context
 			       '(c++-mode c-mode java-mode))
      (ca-add-completion-source ca-source-semantic-tags
@@ -36,6 +37,12 @@
 
 (ca-add-completion-source ca-source-dabbrev
 			  'otherwise)
+
+;; tab cycles to next candidate
+;;(define-key ca-active-map [tab] 'ca-cycle)
+
+;; tab expands current candidate
+;;(define-key ca-active-map [tab] 'ca-expand-top)
 
 (global-ca-mode 1)
 
