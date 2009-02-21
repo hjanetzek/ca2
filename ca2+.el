@@ -211,6 +211,7 @@
   "Keymap used in by `ca-mode' when candidates being completed.")
 
 
+
 ;; TODO: use property!
 (defconst ca-continue-commands
   '(ca-expand-common ca-expand-top ca-expand-anything ca-cycle
@@ -261,7 +262,7 @@
   :group 'ca-mode)
 
 
-(defun ca-begin ()
+(defun ca-begin (&optional candidates source)
   (interactive)
   ;; workarounds
   (when (looking-at "$") 
@@ -271,10 +272,16 @@
     (setq ca-highlight-parentheses-mode t)
     (highlight-parentheses-mode 0))
 
-  (ca-get-candidates)
+  (if (not candidates)
+      (ca-get-candidates)
+    (setq ca-current-source source)
+    (setq ca-candidates candidates)
+    (setq ca-all-candidates candidates)
+    (setq ca-initial-prefix "")
+    (setq ca-prefix ""))
 
   (if (null ca-candidates)
-      (ca-finish)
+      (ca-abort)
     (ca-enable-active-keymap)
     (setq ca-common (try-completion "" ca-candidates))
     (setq ca-last-command-change (point))
@@ -283,7 +290,10 @@
     ;; here makes sure that company is not aborted.
     ;; (as it aborts on commands that are not in this list)
     (unless (memq this-command ca-continue-commands)
-      (push this-command ca-continue-commands)))
+      (push this-command ca-continue-commands))
+    (when candidates
+      (ca-show-overlay)
+      (ca-show-overlay-tips)))
   ca-candidates)
 
 
@@ -301,10 +311,10 @@
   (when ca-highlight-parentheses-mode
     (setq ca-highlight-parentheses-mode nil)
     (highlight-parentheses-mode 1))
+  (let ((source ca-current-source))
+    (setq ca-current-source nil)
+    (ca-source-action source ca-current-candidate)))
 
-  ;; TODO in which cases don not run hook?
-  (ca-source-action ca-current-candidate)
-  (setq ca-current-source nil))
 
 
 (defun ca-abort ()
@@ -336,7 +346,6 @@
 
 
 (defun ca-filter-words ()
-  (message "filter words")
   (if (or (not (ca-source-has-common-prefix))
 	  (<= (length ca-candidates)
 	      ca-how-many-candidates-to-show))
@@ -366,14 +375,12 @@
 
 
 (defun ca-filter-candidates (&optional dont-filter-words)
-  (message "ca-filter-candidates")
   (let ((prefix (if ca-substring-match-on
 		    (replace-regexp-in-string 
 		     ca-substring-match-delimiter ".*"
 		     ca-prefix)
 		  ca-prefix)))
     (setq ca-candidates nil)
-    (message "substring matching  %s %s" ca-substring-match-on dont-filter-words)
     (dolist (item ca-all-candidates)
       (if  (string-match (concat "^" prefix) (ca-candidate-string item))
 	  (push item ca-candidates)))
@@ -383,7 +390,6 @@
       (ca-source-sort-by-occurence))
 
     (unless (or dont-filter-words ca-substring-match-on)
-      (message "1")
       (ca-filter-words))))
 
 
@@ -396,7 +402,6 @@
 
 (defun ca-post-command ()
   (when ca-candidates
-    (message "ca-post-command")
     (cond
      ((eq this-command 'ca-expand-top)
       (when ca-complete-word-on
@@ -457,13 +462,11 @@
 
      ;; other command
      ((not (memq this-command ca-continue-commands))
-      (setq ca-current-candidate nil)
-      (setq ca-candidates nil)))
+      (ca-abort)))
 
     (if (null ca-candidates)
-	(ca-finish) ;; abort?
+	(ca-abort) ;; abort?
 
-      (message "cands %d" (length ca-candidates))
       ;; finish when only one candidate is left which
       ;; is equal prefix and no new candidates can be found
       (if (and (= (length ca-candidates) 1)
@@ -480,9 +483,9 @@
 
 
 ;; TODO pass candidate?
-(defun ca-source-action (candidate)
-  (let ((action (cdr-safe (assq 'action ca-current-source))))
-    (if action (funcall action (cdr-safe candidate)))))
+(defun ca-source-action (source candidate)
+  (let ((action (cdr-safe (assq 'action source))))
+    (if action (funcall action candidate))))
 
 
 (defun ca-source-decider ()
@@ -614,7 +617,6 @@
 	  (when (ca-source-check-limit)
 	    ;; get candidates
 	    (setq candidates (ca-source-candidates))
-	    (message "candidates %d" (length candidates))
 	    ;; sort candidates
 	    (unless (ca-source-is-sorted)
 	      (setq candidates (ca-sort-candidates candidates)))
@@ -629,11 +631,7 @@
 		  (if  (string-match (concat "^" ca-prefix) 
 				     (ca-candidate-string item))
 		      (push item filtered-candidates)))
-		(setq candidates (nreverse filtered-candidates)))
-	      (message "after %d" (length candidates))
-	      ;; (dolist (c candidates) 
-	      ;;   )
-	      )))
+		(setq candidates (nreverse filtered-candidates))))))
 	
 	(setq sources (cdr sources))))
 
@@ -649,8 +647,7 @@
       (setq ca-candidates candidates)
 
       (ca-filter-words)
-      (message "candidates final %d" (length ca-candidates))
-      )
+      (setq ca-current-candidate (car ca-candidates)))
 
     candidates))
 
@@ -1132,6 +1129,6 @@
               (push candidate candidates)
               (setq i (1+ i))))
           (goto-char ac-point))
-	(delq ca-prefix candidates))))
+	(delq (symbol-at-point) candidates))))
 
 (provide 'ca2+)
