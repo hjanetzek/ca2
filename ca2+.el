@@ -169,11 +169,16 @@
 (defvar ca-description-window nil)
 (defvar ca-highlight-parentheses-mode nil)
 
+
+;; 1. do indent
+;; 2. do yas expand if match exactly
+;; 3. run ca2+ completion and enables it if not already active 
 (defun ca-smart-indent ()
   "Indents region if mark is active, or current line otherwise."
   (interactive)
   
   (unless (and (fboundp 'yas/expand) 
+	       (setq yas/fallback-behaviour 'return-nil)
 	       (yas/expand))
     (unless (if (not mark-active)
 		(let ((prev-point (point)))
