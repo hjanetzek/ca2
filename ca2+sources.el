@@ -113,7 +113,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; lisp symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun ca-source-lisp-candidates (prefix)
-  (all-completions prefix obarray))
+  (delete-if-not 
+   '(lambda (cand) 
+      (or (boundp (intern cand))
+	  (fboundp (intern cand))))
+   (all-completions prefix obarray)))
 
 
 (defun ca-source-lisp-describe (candidate)
