@@ -307,6 +307,15 @@
        ca-selection)
   (set (make-local-variable 'ca-last-command-change)
        ca-last-command-change)
+  (set (make-local-variable 'ca-overlay)
+       ca-overlay)
+  (set (make-local-variable 'ca-common-overlay)
+       ca-common-overlay)
+  (set (make-local-variable 'ca-complete-word-on)
+       ca-complete-word-on)
+  (set (make-local-variable 'ca-substring-match-on)
+       ca-substring-match-on)
+
 
   (if (not candidates)
       (ca-get-candidates)
