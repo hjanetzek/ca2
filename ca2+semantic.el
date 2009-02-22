@@ -18,6 +18,7 @@
 ;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth
 ;; Floor, Boston, MA 02110-1301, USA.
 
+;; this code is based on semantic-analyze-complete
 
 
 ;;;###autoload
@@ -192,26 +193,14 @@ Argument CONTEXT is an object specifying the locally derived context."
 	  ;;(message "tag %s" (car origc))
 
 	  (cond
-	   ;; Strip operators
+	   ;; Strip operators.. hm why?
 	   ((semantic-tag-get-attribute (car origc) :operator-flag)
 	    nil)
-	 
-	   ;; If we are completing from within some prefix,
-	   ;; then we want to exclude constructors and destructors
-	   ((and completetexttype
-		 (or (semantic-tag-get-attribute (car origc) :constructor-flag)
-		     (semantic-tag-get-attribute (car origc) :destructor-flag)))
-	    nil)
 
-
-	   ;;XXX check this! (semantic-analyze-type-constants))
+	   ;; TODO check this function! (semantic-analyze-type-constants))
 
 	   ;; If there is a desired type, we need a pair of restrictions
-	   (desired-type
-		 ;; (not (semantic-tag-variable-constant-p (car origc)))
-		 ;; (not (semantic-tag-include-system-p (car origc)))
-		 ;; (not (semantic-tag-of-class-p (car origc) 'include))
-		 ;; (not (semantic-tag-of-class-p (car origc) 'label))
+	   ((or desired-type (not use-cache))
 	    (let* ((tag (car origc))
 		   (members (semantic-tag-type-members tag))
 		   (ttype (semantic-tag-type tag))
@@ -250,9 +239,6 @@ Argument CONTEXT is an object specifying the locally derived context."
 		    (setq func/var-alist (cons m func/var-alist)))
 		    (setcdr m (cons tag (cdr m))))))))
 
-	   ;;(t ;; XXX still needed?
-	   ;; No desired type, no other restrictions.  Just add.
-	   ;;(setq c (cons (car origc) c)))) 
 	   ) ;; cond
 	  (setq origc (cdr origc))) ;; while
 	) ;;let (origc c)
@@ -342,7 +328,9 @@ Argument CONTEXT is an object specifying the locally derived context."
 	  (dolist (member members)
 	    (if (and member 
 		     (or (semantic-tag-of-class-p member 'variable)
-			 (semantic-tag-of-class-p member 'function)))
+			 (semantic-tag-of-class-p member 'function))
+		     (not (semantic-tag-get-attribute member :constructor-flag))
+		     (not (semantic-tag-get-attribute member :destructor-flag)))
 	    (cond 
 	     ;; matches desired type
 	     ((let ((ttype(semantic-tag-type member)))
