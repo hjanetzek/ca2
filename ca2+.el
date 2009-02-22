@@ -32,7 +32,11 @@
 ;; (require 'ca2+)
 ;; (require 'ca2+sources)
 ;; (require 'ca2+config) ;; change this to your needs
-
+;;
+;; if you use yasnippet: it must be loaded after ca2+config or you will
+;; get infinite recursions. I'll have to look into yasnippet to see why 
+;; it does.
+;;
 ;; changes:
 ;; + tab cycles through sources
 ;; + substring matching: type ca-substring-match-delimiter (default 'space')

@@ -16,19 +16,18 @@
 			    lisp-interaction-mode))
 
 
+;; !!!! this needs to be set before '(require 'yasnippet)' !!!!
+;; to let yasnippet not steal the tab key
+;; do not change this unless you like infinite recursions
+(defvar yas/trigger-key (kbd "C-c <kp-multiply>"))
+(defvar yas/fallback-behaviour 'return-nil)
+;; change this to your liking, but it tab would interfer 
+;; with completion within yas templates.
+(defvar yas/next-field-key (kbd "C-f"))
+(defvar yas/prev-field-key (kbd "C-b"))
+
 (eval-after-load 'yasnippet
   '(progn
-     ;; disable yas/trigger key - we call you!!!
-     (setq yas/trigger-key (kbd "C-c <kp-multiply>"))
-     ;; change this to your liking, but it tab would interfer 
-     ;; with completion within yas templates.
-     (setq yas/next-field-key (kbd "C-f"))
-     (setq yas/prev-field-key (kbd "C-b"))
-
-     ;; expand only if word matches template name,
-     ;; otherwise ca2+ shows possible completions
-     (setq yas/fallback-behaviour 'return-nil)
-
      (ca-add-completion-source ca-source-yasnippet
 			       '(emacs-lisp-mode 
 				 lisp-interaction-mode
