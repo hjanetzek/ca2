@@ -415,7 +415,7 @@
       (if  (string-match (concat "^" prefix) (ca-candidate-string item))
 	  (push item ca-candidates)))
     (setq ca-candidates (nreverse ca-candidates))
-
+ 
     (ca-source-sort-by-occurrence)
 
     (unless (or dont-filter-words ca-substring-match-on)
@@ -492,28 +492,30 @@
 	      (t ;; abort 
 	       (setq ca-candidates nil)
 	       (setq ca-current-candidate nil)))
-	(setq ca-selection 0))))
+	(setq ca-selection 0)))
 
-     ;; other command
-    (if (or (not (memq this-command ca-continue-commands))
+     ;; other command     
+     ((not (memq this-command ca-continue-commands))
+       (ca-abort)))
+
+    (if (or (not ca-current-source)
 	    (and (null ca-candidates) 
 		 (not (ca-get-candidates :next))))
-	(ca-abort)
+	(ca-abort)      
+	
+      ;; finish when only one candidate is left which is
+      ;; equal prefix and no new candidates could be found
+      (if (and (= (length ca-candidates) 1)
+	       (string-equal ca-prefix
+			     (ca-candidate-string-nth 0)))
+	  (ca-finish) ;; abort?
 
-      (when ca-candidates
-	;; finish when only one candidate is left which is
-	;; equal prefix and no new candidates could be found
-	(if (and (= (length ca-candidates) 1)
-		 (string-equal ca-prefix
-			       (ca-candidate-string-nth 0)))
-	    (ca-finish) ;; abort?
-
-	  ;; update overlays
-	  (if (>= ca-selection (length ca-candidates))
-	      (setq ca-selection 0))
-	  (setq ca-common (try-completion "" ca-candidates))
-	  (ca-show-overlay)
-	  (ca-show-overlay-tips))))))
+	;; update overlays
+	(if (>= ca-selection (length ca-candidates))
+	    (setq ca-selection 0))
+	(setq ca-common (try-completion "" ca-candidates))
+	(ca-show-overlay)
+	(ca-show-overlay-tips)))))
 
 
 ;; TODO pass candidate?
