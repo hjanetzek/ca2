@@ -337,9 +337,19 @@
     (ca-source-action source ca-current-candidate)))
 
 
-
 (defun ca-abort ()
-  (interactive)
+  (interactive) 
+  ;; strip prefix to first position of
+  ;; ca-substring-match-delimiter
+  (when (and ca-substring-match-on
+	     (> (length ca-prefix) 0))
+    (delete-region (1+ ca-last-command-change)
+		   (1+ (- ca-last-command-change
+			  (- (length ca-prefix)
+			     (string-match
+			      ca-substring-match-delimiter
+			      ca-prefix))))))
+  
   (setq ca-current-candidate nil)
   (setq ca-current-source nil)
   (ca-finish))
@@ -787,8 +797,8 @@
 (defun ca-expand-and-continue ()
   (interactive)
   (ca-expand-top)
-  (ca-source-continue-after-expansion)
-)
+  (ca-source-continue-after-expansion))
+
 
 (defun ca-expand-anything ()
   (interactive)
