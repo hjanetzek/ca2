@@ -1,3 +1,25 @@
+
+;; This file is NOT part of GNU Emacs
+
+;;; License
+;;
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation; either version 3, or (at your option)
+;; any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program; see the file COPYING.  If not, write to
+;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+;; Floor, Boston, MA 02110-1301, USA.
+
+
+
 ;;;###autoload
 (define-overloadable-function semantic-analyze-possible-completions (context)
   "Return a list of semantic tags which are possible completions.
@@ -134,7 +156,9 @@ Argument CONTEXT is an object specifying the locally derived context."
 	       ;; Argument list and local variables
 	       (semantic-find-tags-for-completion completetext localvar)
 	       ;; The current scope
-	       (semantic-find-tags-for-completion completetext (oref scope fullscope)))))
+	       (semantic-find-tags-for-completion completetext (oref 
+								scope 
+								fullscope)))))
 
       (if completetexttype
 	  (setq c (append (semantic-find-tags-for-completion 
@@ -245,10 +269,11 @@ Argument CONTEXT is an object specifying the locally derived context."
 				       mtypes-alist
 				       func/var-alist
 				       c))
+
+      ;; XXX TODO get some cpp to see what this does
       ;; (when desired-class
       ;; 	(setq c (semantic-analyze-tags-of-class-list c desired-class)))
 
-      ;; (setq c (semantic-unique-tag-table-by-name c))
 
       ;; All done!
       c)))
@@ -357,12 +382,14 @@ Uses `semantic-analyze-dereference-metatype'.
 Argument SCOPE is the scope object with additional items in which to search."
   (let ((lasttype type)
         (lasttypedeclaration type-declaration)
-  	(nexttype (semantic-analyze-dereference-metatype type scope type-declaration))
+  	(nexttype (semantic-analyze-dereference-metatype 
+		   type scope type-declaration))
   	(idx 0))
     (while (and nexttype (not (eq (car nexttype) lasttype)) (< idx 10))
       (setq lasttype (car nexttype) 
             lasttypedeclaration (cadr nexttype))
-      (setq nexttype (semantic-analyze-dereference-metatype lasttype scope lasttypedeclaration))
+      (setq nexttype (semantic-analyze-dereference-metatype 
+		      lasttype scope lasttypedeclaration))
       (setq idx (1+ idx))
       (when (> idx 20) (error "Possible metatype recursion for %S"
   			      (semantic-tag-name lasttype))))
