@@ -343,12 +343,11 @@
   ;; ca-substring-match-delimiter
   (when (and ca-substring-match-on
 	     (> (length ca-prefix) 0))
-    (delete-region (1+ ca-last-command-change)
-		   (1+ (- ca-last-command-change
-			  (- (length ca-prefix)
-			     (string-match
-			      ca-substring-match-delimiter
-			      ca-prefix))))))
+    (let ((end (string-match ca-substring-match-delimiter ca-prefix)))
+      (when end
+	(delete-region (1+ ca-last-command-change)
+		       (1+ (- ca-last-command-change
+			      (- (length ca-prefix) end)))))))
   
   (setq ca-current-candidate nil)
   (setq ca-current-source nil)
@@ -417,8 +416,7 @@
 	  (push item ca-candidates)))
     (setq ca-candidates (nreverse ca-candidates))
 
-    (unless ca-substring-match-on
-      (ca-source-sort-by-occurrence))
+    (ca-source-sort-by-occurrence)
 
     (unless (or dont-filter-words ca-substring-match-on)
       (ca-filter-words))))
@@ -455,6 +453,11 @@
 			      ca-candidates) 0)))
      ;; char inserted
      ((eq (- (point) ca-last-command-change) 1)
+      ;; (cond 
+      ;;  ((and (= (length ca-candidates) 1)
+      ;; 	     (looking-back " "))
+      ;; 	(ca-finish))
+
       (when (looking-back ca-substring-match-delimiter)
 	(setq ca-substring-match-on t))
 
@@ -489,28 +492,28 @@
 	      (t ;; abort 
 	       (setq ca-candidates nil)
 	       (setq ca-current-candidate nil)))
-	(setq ca-selection 0)))
+	(setq ca-selection 0))))
 
      ;; other command
-     ((not (memq this-command ca-continue-commands))
-      (ca-abort)))
+    (if (or (not (memq this-command ca-continue-commands))
+	    (and (null ca-candidates) 
+		 (not (ca-get-candidates :next))))
+	(ca-abort)
 
-    (if (null ca-candidates)
-	(ca-abort) ;; abort?
+      (when ca-candidates
+	;; finish when only one candidate is left which is
+	;; equal prefix and no new candidates could be found
+	(if (and (= (length ca-candidates) 1)
+		 (string-equal ca-prefix
+			       (ca-candidate-string-nth 0)))
+	    (ca-finish) ;; abort?
 
-      ;; finish when only one candidate is left which
-      ;; is equal prefix and no new candidates can be found
-      (if (and (= (length ca-candidates) 1)
-      	       (string-equal ca-prefix
-      			     (ca-candidate-string-nth 0)))
-	  ;;(not (ca-source-continue-after-expansion)))
-      	  (ca-finish) ;; abort?
-	;; update overlays
-	(if (>= ca-selection (length ca-candidates))
-	    (setq ca-selection 0))
-	(setq ca-common (try-completion "" ca-candidates))
-	(ca-show-overlay)
-	(ca-show-overlay-tips)))))
+	  ;; update overlays
+	  (if (>= ca-selection (length ca-candidates))
+	      (setq ca-selection 0))
+	  (setq ca-common (try-completion "" ca-candidates))
+	  (ca-show-overlay)
+	  (ca-show-overlay-tips))))))
 
 
 ;; TODO pass candidate?
@@ -1135,12 +1138,14 @@
 (defun ca-words-in-buffer ()
   "Default implementation for `ac-candidate-function'."
   (if (> (length ca-prefix) 0)
-      (let ((i 0)
+      (let* ((i 0)
 	    (ac-point (point))
 	    (ac-limit 15)
             candidate
             candidates
-            (regexp (concat "\\b" (regexp-quote ca-prefix)
+	    (end (string-match ca-substring-match-delimiter ca-prefix))
+	    (prefix (if end (substring ca-prefix 0 end) ca-prefix))
+            (regexp (concat "\\b" (regexp-quote prefix)
 			    "\\(\\s_\\|\\sw\\)*\\b")))
         (save-excursion
           ;; search backward
