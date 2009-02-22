@@ -1,4 +1,4 @@
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; CompleteAnything^2+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;; CompleteAnything^2+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; fork of company-mode.el, with code from auto-complete.el and completion
 ;; methods found on emacswiki
@@ -34,37 +34,37 @@
 ;; (require 'ca2+config) ;; change this to your needs
 
 ;; changes:
-;; + tab cycles through sources 
+;; + tab cycles through sources
 ;; + substring matching: type ca-substring-match-delimiter (default 'space')
 ;;   to start this mode. e.g. "a[tab] 8 s[ret]" will insert:
-;;   "add-log-iso8601-time-string". this feature also saves you from having to 
+;;   "add-log-iso8601-time-string". this feature also saves you from having to
 ;;   type in not so easily reachable charachters like '-' or '_'
 ;; + expand-common expand the current selected candidate to next word boundary,
 ;;   if no common expansion is possible
 ;; + candidates are sorted by words in current buffer
 ;; + ac-styled source description: so it's really easy to port sources for
 ;;   auto-complete
-;; 
+;;
 ;; + describe option: sources can provide a description function for candidates
-;;   bound to C-h, see elisp source 
-;; + continue-after-insertion option, to get new completions after insertion, 
+;;   bound to C-h, see elisp source
+;; + continue-after-insertion option, to get new completions after insertion,
 ;;   see 'filename' source
 ;; + actions to execute after insertion, see yasnippet source
 ;; + candidates can be cons pairs, car is candidate, cdr is shown as minibuffer
 ;;   message, see yasnippet source
 ;; + sources can indicate whether their candidates have a common-prefix, this
 ;;   is used to reduce the number of visible candidates, as the prefix will
-;;   be shown only once. after expansion of prefix  all candidates with that 
+;;   be shown only once. after expansion of prefix  all candidates with that
 ;;   prefix are shown. see gtags and elisp sources.
 ;; + thing-at-point decider can be used now, see 'filename' source
 
 ;; TODO:
 ;; - add autoexpand
-;; - when there is only one candidate to expand move point to end 
+;; - when there is only one candidate to expand move point to end
 ;;   so that one only need to press space?
 ;;
 ;; BUGS:
-;; - expand-common does weird thing when word-filter is on 
+;; - expand-common does weird thing when word-filter is on
 ;; - point jump around when cycling (remove current workaround)
 ;;
 
@@ -175,20 +175,19 @@
 
 ;; 1. do indent
 ;; 2. do yas expand if match exactly
-;; 3. run ca2+ completion and enables it if not already active 
+;; 3. run ca2+ completion and enables it if not already active
 (defun ca-smart-indent ()
-  "Indents region if mark is active, or current line otherwise."
   (interactive)
-  
-  (unless (and (fboundp 'yas/expand) 
-	       (setq yas/fallback-behaviour 'return-nil)
-	       (yas/expand))
+  ;; this shouldnt be started in minibuffer anyway, just in case
+  (if (minibufferp)
+      (minibuffer-complete)
     (unless (if (not mark-active)
 		(let ((prev-point (point)))
 		  (indent-for-tab-command)
 		  (not (eql (point) prev-point)))
 	      (indent-region (region-beginning) (region-end)) t)
-      (ca-begin))))
+      (unless (and (fboundp 'yas/expand) (yas/expand))
+    	(ca-begin)))))
 
 (defvar ca-mode-map
   (let ((map (make-sparse-keymap)))
@@ -233,14 +232,12 @@
 
 
 
-;; TODO: use property!
+;; TODO: use property! ;;ca-expand-anything ca-start-showing ca-match-abbrev
 (defconst ca-continue-commands
-  '(ca-expand-common ca-expand-top ca-expand-anything ca-cycle
+  '(ca-expand-common ca-expand-top ca-cycle
     ca-cycle-backwards universal-argument
-    ca-start-showing ca-match-abbrev
     ca-expand-abbrev ca-next-source
-    ca-expand-and-continue
-    ca-describe-candidate)
+    ca-expand-and-continue ca-describe-candidate)
   "Commands as given by `last-command' that don't end extending.")
 
 
@@ -286,12 +283,30 @@
 (defun ca-begin (&optional candidates source)
   (interactive)
   ;; workarounds
-  (when (looking-at "$") 
+  (when (looking-at "$")
     (insert-string " ") (backward-char))
   (when (and (fboundp 'highlight-parentheses-mode)
 	     highlight-parentheses-mode)
     (setq ca-highlight-parentheses-mode t)
     (highlight-parentheses-mode 0))
+
+  ;; TODO put all these in one alist
+  (set (make-local-variable 'ca-current-candidate)
+       ca-current-candidate)
+  (set (make-local-variable 'ca-current-source)
+       ca-current-source)
+  (set (make-local-variable 'ca-candidates)
+       ca-candidates)
+  (set (make-local-variable 'ca-all-candidates)
+       ca-all-candidates)
+  (set (make-local-variable 'ca-prefix)
+       ca-prefix)
+  (set (make-local-variable 'ca-initial-prefix)
+       ca-initial-prefix)
+  (set (make-local-variable 'ca-selection)
+       ca-selection)
+  (set (make-local-variable 'ca-last-command-change)
+       ca-last-command-change)
 
   (if (not candidates)
       (ca-get-candidates)
@@ -338,17 +353,17 @@
 
 
 (defun ca-abort ()
-  (interactive) 
+  (interactive)
   ;; strip prefix to first position of
   ;; ca-substring-match-delimiter
   (when (and ca-substring-match-on
 	     (> (length ca-prefix) 0))
     (let ((end (string-match ca-substring-match-delimiter ca-prefix)))
       (when end
-	(delete-region (1+ ca-last-command-change)
-		       (1+ (- ca-last-command-change
-			      (- (length ca-prefix) end)))))))
-  
+	(delete-region ca-last-command-change
+		       (- ca-last-command-change
+			  (- (length ca-prefix) end))))))
+
   (setq ca-current-candidate nil)
   (setq ca-current-source nil)
   (ca-finish))
@@ -381,7 +396,7 @@
 	      ca-how-many-candidates-to-show))
       (progn
 	(setq ca-complete-word-on nil)
-	ca-candidates)
+	candidates)
     (let ((cands nil)
 	  (len (length ca-prefix))
 	  cand end)
@@ -389,11 +404,12 @@
       (dolist (item ca-candidates)
 	(setq cand (ca-candidate-string item))
 	(setq end (string-match "\\W.+" cand len))
+
 	(if (and end (= end len))
 	    (setq end  (string-match "\\W" cand (1+ len)))
 	  (setq end  (string-match "\\W" cand len)))
 	(if end
-	    (setq cands (ca-filter-words-push 
+	    (setq cands (ca-filter-words-push
 			 (substring cand 0 (1+ end))
 			 cand cands))
 	  (setq cands (ca-filter-words-push cand cand cands))))
@@ -405,21 +421,25 @@
 
 
 (defun ca-filter-candidates (&optional dont-filter-words)
-  (let ((prefix (if ca-substring-match-on
-		    (replace-regexp-in-string 
-		     ca-substring-match-delimiter ".*"
-		     ca-prefix)
-		  ca-prefix)))
-    (setq ca-candidates nil)
+  (let* ((candidates nil)
+	 (prefix (if ca-substring-match-on
+		     (replace-regexp-in-string
+		      ca-substring-match-delimiter ".*"
+		      ca-prefix)
+		   ca-prefix))
+	 (prefix (concat "^" prefix)))
+
     (dolist (item ca-all-candidates)
-      (if  (string-match (concat "^" prefix) (ca-candidate-string item))
-	  (push item ca-candidates)))
-    (setq ca-candidates (nreverse ca-candidates))
- 
+      (when (string-match prefix (ca-candidate-string item))
+	(push item candidates)))
+
+    (setq ca-candidates (nreverse candidates))
+
     (ca-source-sort-by-occurrence)
 
     (unless (or dont-filter-words ca-substring-match-on)
-      (ca-filter-words))))
+      (ca-filter-words)))
+  ca-candidates)
 
 
 (defun ca-mode-pre-command ()
@@ -432,90 +452,70 @@
 (defun ca-post-command ()
   (when ca-candidates
     (cond
-     ((eq this-command 'ca-expand-top)
-      (when ca-complete-word-on
-	(ca-grab-prefix)
-	(unless (find-if '(lambda (item)
-			    (string-equal 
-			     ca-prefix 
-			     (ca-candidate-string item)))
-			 ca-all-candidates)
-	  (ca-filter-candidates)
-	  (setq ca-selection 0))))
+     ((memq this-command ca-continue-commands)
+      (ca-continue))
 
-     ;; expanded common substring
-     ((eq this-command 'ca-expand-common)
-      (setq cand (nth ca-selection ca-candidates))
-      (ca-grab-prefix)
-      (ca-filter-candidates)
-      (setq ca-selection (or (position-if
-			      '(lambda (c) (eq c cand))
-			      ca-candidates) 0)))
      ;; char inserted
      ((eq (- (point) ca-last-command-change) 1)
-      ;; (cond 
-      ;;  ((and (= (length ca-candidates) 1)
-      ;; 	     (looking-back " "))
-      ;; 	(ca-finish))
-
       (when (looking-back ca-substring-match-delimiter)
 	(setq ca-substring-match-on t))
 
-      (setq ca-prefix (concat 
-		       ca-prefix 
-		       (buffer-substring-no-properties 
+      (setq ca-prefix (concat ca-prefix
+		       (buffer-substring-no-properties
 			ca-last-command-change (point))))
+
       (ca-filter-candidates)
+
+      (cond
+       ((null ca-candidates)
+	(ca-abort))
+       ((= (length ca-candidates) 1)
+	(setq ca-current-candidate (car ca-candidates))
+	(ca-continue))
+       ;; XXX make this an option. i.e. automatically
+       ;; expand only matching candidate
+	;; (ca-insert-candidate (car ca-candidates))
+	;; (if (ca-source-continue-after-expansion)
+	;;     (ca-continue)
+	;;   (ca-finish)))
+       (t
+	(setq ca-selection
+	      (or (position-if
+		   '(lambda (c) (equal c ca-current-candidate))
+		   ca-candidates) 0))
+	(ca-continue))))
+
+     ;; char deleted
+     ((and (> ca-last-command-change (point))
+	   (>= (point) (- ca-last-command-change (length ca-prefix))))
+
+      (setq ca-prefix (substring ca-prefix 0
+		       (- (length ca-prefix)
+			  (- ca-last-command-change (point)))))
+      (cond
+       ((or (>= (length ca-prefix)
+		(length ca-initial-prefix))
+	    (not (ca-source-is-filtered)))
+	;; prefix is longer as the initial prefix for
+	;; which ca-all-candidates were collected or
+	;; source provided all possible candidates
+	(ca-filter-candidates))
+	    ((> (length ca-prefix) 0)
+	     (ca-get-candidates))
+	(setq ca-selection 0))
+	(ca-continue))
+
+     ;; abort on other commands
+     (t (ca-abort)))))
+
+
+(defun ca-continue ()
+  (if (>= ca-selection (length ca-candidates))
       (setq ca-selection 0))
-
-     ;; char deleted 
-     ;; TODO restructure this
-     ((eq (- (point) ca-last-command-change) -1)
-      (if (= (length ca-prefix) 0)
-	  (progn 
-	    (setq ca-candidates nil)
-	    (setq ca-current-candidate nil))
-
-	(setq ca-prefix (substring 
-			 ca-prefix 0
-			 (1- (length ca-prefix))))
-      
-	(cond ((or (>= (length ca-prefix) 
-		       (length ca-initial-prefix))
-		   (not (ca-source-is-filtered)))
-	       ;; prefix is longer as the initial prefix for 
-	       ;; which ca-all-candidates were collected or
-	       ;; source provided all possible candidates
-	       (ca-filter-candidates))
-	      ((> (length ca-prefix) 0)
-	       (ca-get-candidates))
-	      (t ;; abort 
-	       (setq ca-candidates nil)
-	       (setq ca-current-candidate nil)))
-	(setq ca-selection 0)))
-
-     ;; other command     
-     ((not (memq this-command ca-continue-commands))
-       (ca-abort)))
-
-    (if (or (not ca-current-source)
-	    (and (null ca-candidates) 
-		 (not (ca-get-candidates :next))))
-	(ca-abort)      
-	
-      ;; finish when only one candidate is left which is
-      ;; equal prefix and no new candidates could be found
-      (if (and (= (length ca-candidates) 1)
-	       (string-equal ca-prefix
-			     (ca-candidate-string-nth 0)))
-	  (ca-finish) ;; abort?
-
-	;; update overlays
-	(if (>= ca-selection (length ca-candidates))
-	    (setq ca-selection 0))
-	(setq ca-common (try-completion "" ca-candidates))
-	(ca-show-overlay)
-	(ca-show-overlay-tips)))))
+  (setq ca-common (try-completion "" ca-candidates))
+  (setq ca-current-candidate (nth ca-selection ca-candidates))
+  (ca-show-overlay)
+  (ca-show-overlay-tips))
 
 
 ;; TODO pass candidate?
@@ -584,25 +584,23 @@
 
 (defun ca-source-continue-after-expansion ()
   (let ((cont (cdr-safe (assq 'continue ca-current-source))))
+    (cond
+     ((fboundp cont)
+      (let ((candidates (funcall cont ca-current-candidate)))
+	(when candidates
+	  (setq ca-prefix "")
+	  (setq ca-initial-prefix "")
+	  (setq ca-common "")
+	  (setq ca-selection 0)
+	  (setq ca-candidates candidates)
+	  (setq ca-all-candidates candidates))))
 
-  (cond 
-   ((fboundp cont)
-    (let ((candidates (funcall cont ca-current-candidate)))
-      (when candidates 
-	(setq ca-prefix "")
-	(setq ca-initial-prefix "")
-	(setq ca-common "")
-	(setq ca-selection 0)
-	(setq ca-candidates candidates)
-	(setq ca-all-candidates candidates))))
-
-   (cont
-    (let ((prefix ca-prefix))
-      (ca-get-candidates)
-      ;; test if new candidates were found
-      (not (and (= (length ca-candidates) 1)
-		(string-equal prefix (ca-candidate-string-nth 0))))))
-   )))
+     (cont ;; TODO remove this!
+      (let ((prefix ca-prefix))
+	(ca-get-candidates)
+	;; test if new candidates were found
+	(not (and (= (length ca-candidates) 1)
+		  (string-equal prefix (ca-candidate-string-nth 0)))))))))
 
 
 ;; check wheter the candidate list is made of cons pairs
@@ -661,28 +659,17 @@
 	    (setq ca-all-candidates (copy-list candidates))
 
 	    ;; filter candidates by prefix
-	    (when (not (ca-source-is-filtered))
-	      (let ((filtered-candidates nil))
-		(dolist (item candidates)
-		  (if  (string-match (concat "^" ca-prefix) 
-				     (ca-candidate-string item))
-		      (push item filtered-candidates)))
-		(setq candidates (nreverse filtered-candidates))))))
-	
+	    (ca-filter-candidates)
+	    (setq candidates ca-candidates)))
+
 	(setq sources (cdr sources))))
 
     (when candidates
       (message "%s candidates" (cdr-safe (assq 'name ca-current-source)))
-      ;; (unless (ca-source-is-sorted)
-      ;; 	(setq candidates (ca-sort-candidates candidates)))
-      
-      (setq ca-initial-prefix ca-prefix)
-      (setq ca-substring-match-on nil)
-      ;;(setq ca-all-candidates candidates)
-      ;;(setq ca-candidates ca-all-candidates)
-      (setq ca-candidates candidates)
 
-      (ca-filter-words)
+      (setq ca-initial-prefix ca-prefix)
+      (setq ca-substring-match-on nil) ;; set this in 'cycle and 'begin?
+
       (setq ca-current-candidate (car ca-candidates)))
 
     candidates))
@@ -690,7 +677,7 @@
 
 (defun ca-grab-prefix (&optional thing)
   (setq start (ca-source-decider))
-  (setq ca-prefix 
+  (setq ca-prefix
 	(and start (buffer-substring-no-properties start (point)))))
 
 
@@ -727,8 +714,7 @@
   (ca-get-candidates :next))
 
 
-;;; TODO: make this the Nth _visible_ completion?
-(defun ca-expand-number (n &optional word)
+(defun ca-expand-number (n)
   "Expand the Nth candidate."
   (interactive "P")
   (unless ca-mode (error "ca-mode not enabled"))
@@ -736,29 +722,11 @@
     (ca-begin))
   (if (not ca-candidates)
       (message "No candidates found")
-    (let* ((candidate (nth (1- n) ca-candidates))
-	   (cand (if candidate (ca-candidate-string candidate)))
-	   (tmp cand))
+    (let* ((cand (nth (1- n) ca-candidates)))
       (if (not cand)
 	  (error "No such candidate")
-	(if word
-	    (ca-insert-candidate
-	     (substring cand 0
-			(or (and (string-match "^\\W" cand) 1)
-			    (string-match "\\W" cand)
-			    (length cand))))
-	  (ca-insert-candidate cand)))
-      candidate)))
-
-
-;; XXX remove?
-(defmacro ca-expand-then (command)
-  `(lambda () (interactive) (ca-expand-top) (call-interactively ,command)))
-
-
-(defun ca-start-showing ()
-  (interactive)
-  (unless ca-candidates (ca-begin)))
+	(ca-insert-candidate cand))
+      cand)))
 
 
 (defun ca-expand-or-cycle ()
@@ -793,22 +761,26 @@
 
 (defun ca-expand-top ()
   (interactive)
-  ;; (setq ca-candidates nil)
-  ;; (setq ca-all-candidates nil)
-  (setq ca-candidates (list (ca-expand-number (1+ ca-selection))))
-  (setq ca-prefix (ca-candidate-string-nth 0)))
+  (ca-insert-candidate ca-current-candidate)
+  (setq ca-prefix (ca-candidate-string ca-current-candidate))
+  (if (not ca-complete-word-on)
+      (ca-finish)
+    (ca-filter-candidates)
+    (if (< (length ca-candidates) 2)
+	(ca-finish))))
 
 
 (defun ca-expand-and-continue ()
   (interactive)
-  (ca-expand-top)
-  (ca-source-continue-after-expansion))
-
-
-(defun ca-expand-anything ()
-  (interactive)
-  (when (equal (ca-expand-common) "")
-    (ca-expand-top)))
+  (ca-insert-candidate ca-current-candidate)
+  (setq ca-prefix (ca-candidate-string ca-current-candidate))
+  (if (not ca-complete-word-on)
+      (or (ca-source-continue-after-expansion)
+	  (ca-finish))
+    (ca-filter-candidates)
+    (if (< (length ca-candidates) 2)
+	(or (ca-source-continue-after-expansion)
+	    (ca-finish)))))
 
 
 (defun ca-expand-common ()
@@ -816,16 +788,34 @@
   (unless ca-mode (error "ca-mode not enabled"))
   (unless ca-candidates
     (ca-begin))
-  (if ca-complete-word-on
-      (ca-expand-top)
-    (if ca-candidates
-	(let ((common ca-common))
-	  (if (= (length ca-prefix) (length common))
-	      (ca-expand-number (1+ ca-selection) t)
-	    (ca-insert-candidate common))
-	  common)
-      (when (called-interactively-p)
-	(error "No candidates found")))))
+  (if ca-candidates
+      (let ((common ca-common))
+	(if (= (length ca-prefix) (length common))
+	    ;; if there is no common part to expand
+	    (let* ((current ca-current-candidate)
+		   (delim (string-match "\\W" current (length ca-prefix))))
+	      (if delim
+		  ;; expand to the next word delimiter
+		  (setq common (substring current 0 (1+ delim)))
+		;; or expand the current candidate
+		(setq common current))))
+
+	(ca-insert-candidate common)
+	(setq ca-prefix common)
+	(ca-filter-candidates)
+
+	(if (> (length ca-candidates) 1)
+	    ;; continue,
+	    (setq ca-selection
+		  (or (position-if
+		       '(lambda (c) (equal c ca-current-candidate))
+		       ca-candidates) 0))
+	  ;; expand last left candidate  and finish
+	  (ca-insert-candidate (car ca-candidates))
+	  (ca-finish)))
+
+    (when (called-interactively-p)
+      (error "No candidates found"))))
 
 
 (defun ca-describe-candidate ()
@@ -840,8 +830,8 @@
 	  (when (not (eq win (selected-window)))
 	    (setq ca-description-window (selected-window))
 	    (select-window win))))))
-      
-    
+
+
 
 
 ;;; keymap ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -913,8 +903,7 @@
 (defun ca-show-overlay ()
   (if ca-overlay
       (ca-hide-overlay))
-  (setq ca-current-candidate (nth ca-selection ca-candidates))
-  (let* ((candidate (if ca-substring-match-on 
+  (let* ((candidate (if ca-substring-match-on
 			ca-current-candidate
 		      (ca-chop ca-current-candidate)))
 	 (prefix-length (length ca-prefix))
@@ -1119,7 +1108,7 @@
       (dolist (mode modes)
 	(ca-add-completion-source-1 source mode))
     (ca-add-completion-source-1 source modes)))
-  
+
 
 (defun ca-clear-completion-sources ()
   (setq ca-source-alist))
