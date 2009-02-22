@@ -1,29 +1,32 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; CompleteAnything^2+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; fork of company-mode.el, with code from auto-complete.el and completion
-;; methods found on emacswiki ...pronounced 'c a 2 plus'
+;; methods found on emacswiki
+;;
+;; plesase send Bug reports and suggestions to 'hannes dot janetzek at gmail dot com'
 
 ;; This file is NOT part of GNU Emacs
-
-;;; License
+;;
+;;
+;;  License
 ;;
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
-
+;;
 ;; This program is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
-
+;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program; see the file COPYING.  If not, write to
 ;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth
 ;; Floor, Boston, MA 02110-1301, USA.
 
 
-;; either enable ca-mode per buffer via (ca-mode 1) or (global-ca-mode 1)
+;; either enable ca-mode per buffer via (ca-mode 1) or use (global-ca-mode 1)
 ;; to enable it in all buffer that match 'ca-modes'
 ;;
 ;; (require 'ca2+)
@@ -54,7 +57,7 @@
 ;;   be shown only once. after expansion of prefix  all candidates with that 
 ;;   prefix are shown. see gtags and elisp sources.
 ;; + thing-at-point decider can be used now, see 'filename' source
-;;
+
 ;; TODO:
 ;; - add autoexpand
 ;; - when there is only one candidate to expand move point to end 
@@ -405,7 +408,7 @@
     (setq ca-candidates (nreverse ca-candidates))
 
     (unless ca-substring-match-on
-      (ca-source-sort-by-occurence))
+      (ca-source-sort-by-occurrence))
 
     (unless (or dont-filter-words ca-substring-match-on)
       (ca-filter-words))))
@@ -599,8 +602,8 @@
     (sort* cands 'string<)))
 
 
-(defun ca-source-sort-by-occurence ()
-  (if (cdr-safe (assq 'sort-by-occurence ca-current-source))
+(defun ca-source-sort-by-occurrence ()
+  (if (cdr-safe (assq 'sort-by-occurrence ca-current-source))
       (let ((around (ca-words-in-buffer))
 	    (len (length ca-candidates)))
 	(dolist (word around)

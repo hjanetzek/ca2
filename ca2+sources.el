@@ -91,7 +91,8 @@
 
 (defvar ca-source-filename
   '((candidates . ca-source-filename-candidates)
-    (decider    . filename)
+    (decider    . filename) ;; TODO use function that checks content of 
+                            ;; current dir for name completion without ./
     (limit      . 1)   ;; minimum prefix length to find completion
     (separator  . "/") ;; truncate candidates shown in popup
                        ;; before last position of separator
@@ -120,7 +121,7 @@
 
 ;;(defun ca-source-lisp-action (candidate))
 
-
+(symbolp )
 (defvar ca-source-lisp
   '((name       . "elisp")
     (candidates . ca-source-lisp-candidates)
@@ -129,13 +130,18 @@
     (sorted     . t)
     ;;(action     . ca-source-lisp-action)
     ;;(separator  . "-") ;; use this to strip common-prefix from tooltip
-    (sort-by-occurence . t)
+    (sort-by-occurrence . t)
     (common-prefix . t)) ;; candidates have common prefixes,
                          ;; this is used to reduce the number 
                          ;; of visible candidates, instead
                          ;; the prefixes are shown.
   "ca2+ lisp symbol source")
 
+(defvar ca-source-lisp
+  '((name       . "elisp")
+    (candidates . '(lambda (prefix)  
+		     (all-completions 
+		      prefix obarray)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; gtags ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -160,7 +166,7 @@
   '((candidates . ca-source-gtags-candidates)
     (limit      . 1)
     (sorted     . nil)
-    (sort-by-occurence . t)
+    (sort-by-occurrence . t)
     (common-prefix . t)
     (name       . "gtags"))
   "ca2+ gtags source")
@@ -387,7 +393,7 @@ COLOR specifies if color should be used."
     (info . ca-source-semantic-tag-summary)
     (continue . ca-source-semantic-continue)
     (sorted . t)
-    ;;(sort-by-occurence . t)
+    ;;(sort-by-occurrence . t)
     (name . "semantic-arguments"))
   "ca2+ source for semantic argument completion")
 
