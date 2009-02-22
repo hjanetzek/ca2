@@ -23,6 +23,13 @@
 ;; based on company-mode.el, auto-complete.el and completion methods
 ;; found on emacswiki
 
+;; Simple Example Source  
+;; (defvar ca-source-lisp
+;;   '((name       . "elisp")
+;;     (candidates . '(lambda (prefix)  
+;; 		     (all-completions 
+;; 		      prefix obarray)))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; dabbrev ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -121,7 +128,6 @@
 
 ;;(defun ca-source-lisp-action (candidate))
 
-(symbolp )
 (defvar ca-source-lisp
   '((name       . "elisp")
     (candidates . ca-source-lisp-candidates)
@@ -137,11 +143,6 @@
                          ;; the prefixes are shown.
   "ca2+ lisp symbol source")
 
-(defvar ca-source-lisp
-  '((name       . "elisp")
-    (candidates . '(lambda (prefix)  
-		     (all-completions 
-		      prefix obarray)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; gtags ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
