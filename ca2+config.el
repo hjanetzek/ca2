@@ -23,7 +23,10 @@
 (eval-after-load 'semantic
   '(progn 
      (require 'semantic-ia)
-     (require 'ca2+semantic)
+     ;; experimental, but faster version. 
+     ;; you need to run ca-semantic-clear-cache 
+     ;; to update cached tags tables
+     ;;(require 'ca2+semantic)
      (ca-add-completion-source ca-source-semantic-context
 			       '(c++-mode c-mode java-mode))
      (ca-add-completion-source ca-source-semantic-tags
@@ -46,5 +49,5 @@
 
 (global-ca-mode 1)
 
-(provide 'ca2+config)
+(provide 'ca2+config) 
 
