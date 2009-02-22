@@ -58,8 +58,9 @@ in a buffer."
 	 (get-buffer-window "*Possible Completions*")))
       ans)))
 
-(defun clear-cache ()
+(defun ca-semantic-clear-cache ()
   (interactive)
+  (message "Clear Semantic Cache")
   (setq semantic-analyze-cache-tags nil)
   (setq semantic-analyze-cache-funcs/vars nil)
   (setq semantic-analyze-cache-mtype-alist nil))
@@ -188,6 +189,8 @@ Argument CONTEXT is an object specifying the locally derived context."
 	;; Loop over all the found matches, and catagorize them
 	;; as being possible features.
 	(while origc
+	  ;;(message "tag %s" (car origc))
+
 	  (cond
 	   ;; Strip operators
 	   ((semantic-tag-get-attribute (car origc) :operator-flag)
@@ -204,10 +207,11 @@ Argument CONTEXT is an object specifying the locally derived context."
 	   ;;XXX check this! (semantic-analyze-type-constants))
 
 	   ;; If there is a desired type, we need a pair of restrictions
-	   ((and desired-type 
-		 (not (semantic-tag-variable-constant-p (car origc)))
-		 (not (semantic-tag-include-system-p (car origc)))
-		 (not (semantic-tag-of-class-p (car origc) 'include)))
+	   (desired-type
+		 ;; (not (semantic-tag-variable-constant-p (car origc)))
+		 ;; (not (semantic-tag-include-system-p (car origc)))
+		 ;; (not (semantic-tag-of-class-p (car origc) 'include))
+		 ;; (not (semantic-tag-of-class-p (car origc) 'label))
 	    (let* ((tag (car origc))
 		   (members (semantic-tag-type-members tag))
 		   (ttype (semantic-tag-type tag))
@@ -217,6 +221,7 @@ Argument CONTEXT is an object specifying the locally derived context."
 		   (dtype (car desired-type))
 		   found mtype mtypes)
 	      (cond 
+	       ;; XXX how to make this generic?
 	       (typedef
 		(let* ((m (assoc typedef mtypes-alist)))
 		  (unless m 
@@ -235,7 +240,8 @@ Argument CONTEXT is an object specifying the locally derived context."
 			(setq mtypes-alist (cons m mtypes-alist)))
 		      (setcdr m (cons tname (cdr m)))))))
 
-	       (t ;;(not (semantic-tag-variable-constant-p tag))
+	       ((or (semantic-tag-of-class-p tag 'variable)
+		    (semantic-tag-of-class-p tag 'function)) 
 		(if (listp ttype)
 		    (setq ttype (car ttype)))
 		(let ((m (assoc ttype func/var-alist)))
@@ -244,10 +250,10 @@ Argument CONTEXT is an object specifying the locally derived context."
 		    (setq func/var-alist (cons m func/var-alist)))
 		    (setcdr m (cons tag (cdr m))))))))
 
-	   (t ;; XXX still needed?
-	    ;; No desired type, no other restrictions.  Just add.
-	    (setq c (cons (car origc) c)))) ;; cond
-
+	   ;;(t ;; XXX still needed?
+	   ;; No desired type, no other restrictions.  Just add.
+	   ;;(setq c (cons (car origc) c)))) 
+	   ) ;; cond
 	  (setq origc (cdr origc))) ;; while
 	) ;;let (origc c)
 
@@ -334,6 +340,9 @@ Argument CONTEXT is an object specifying the locally derived context."
 	    reachable unreachable)
 	(when members
 	  (dolist (member members)
+	    (if (and member 
+		     (or (semantic-tag-of-class-p member 'variable)
+			 (semantic-tag-of-class-p member 'function)))
 	    (cond 
 	     ;; matches desired type
 	     ((let ((ttype(semantic-tag-type member)))
@@ -348,7 +357,7 @@ Argument CONTEXT is an object specifying the locally derived context."
 
 	     ;; deisred type is not reachable
 	     (t
-	      (setq unreachable (cons member unreachable)))))
+	      (setq unreachable (cons member unreachable))))))
 	  (setq tags (append tags reachable unreachable)))))
     tags))
 
