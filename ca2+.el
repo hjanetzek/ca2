@@ -172,13 +172,15 @@
 (defun ca-smart-indent ()
   "Indents region if mark is active, or current line otherwise."
   (interactive)
-  (unless 
-      (if (not mark-active)
-	  (let ((prev-point (point)))
-	    (indent-for-tab-command)
-	    (not (eql (point) prev-point)))
-	(indent-region (region-beginning) (region-end)) t)
-    (ca-begin)))
+  
+  (unless (and (fboundp 'yas/expand) 
+	       (yas/expand))
+    (unless (if (not mark-active)
+		(let ((prev-point (point)))
+		  (indent-for-tab-command)
+		  (not (eql (point) prev-point)))
+	      (indent-region (region-beginning) (region-end)) t)
+      (ca-begin))))
 
 (defvar ca-mode-map
   (let ((map (make-sparse-keymap)))
