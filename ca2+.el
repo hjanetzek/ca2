@@ -169,9 +169,20 @@
 (defvar ca-description-window nil)
 (defvar ca-highlight-parentheses-mode nil)
 
+(defun ca-smart-indent ()
+  "Indents region if mark is active, or current line otherwise."
+  (interactive)
+  (unless 
+      (if (not mark-active)
+	  (let ((prev-point (point)))
+	    (indent-for-tab-command)
+	    (not (eql (point) prev-point)))
+	(indent-region (region-beginning) (region-end)) t)
+    (ca-begin)))
+
 (defvar ca-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map "\t" 'ca-expand-common)
+    (define-key map "\t" 'ca-smart-indent)
     map)
   "Keymap used in by `ca-mode'.")
 
