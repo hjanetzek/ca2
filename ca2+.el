@@ -185,13 +185,19 @@
   ;; this shouldnt be started in minibuffer anyway, just in case
   (if (minibufferp)
       (minibuffer-complete)
-    (unless (if (not mark-active)
-		(let ((prev-point (point)))
-		  (indent-for-tab-command)
-		  (not (eql (point) prev-point)))
-	      (indent-region (region-beginning) (region-end)) t)
-      (unless (and (fboundp 'yas/expand) (yas/expand))
-    	(ca-begin)))))
+    ;; workaround to make the loading order of ca2+ and yasnippet 
+    ;; independent without the chance to get infinite recursion.
+    (let ((tmp yas/fallback-behavior))
+      (unless (if (not mark-active)
+		  (let ((prev-point (point)))
+		    (indent-for-tab-command)
+		    (not (eql (point) prev-point)))
+		(indent-region (region-beginning) (region-end)) t)
+	(unless (and (fboundp 'yas/expand)
+		     (setq yas/fallback-behavior 'return-nil)
+		     (yas/expand))
+	  (ca-begin)))
+      (setq yas/fallback-behavior tmp))))
 
 (defvar ca-mode-map
   (let ((map (make-sparse-keymap)))
@@ -286,6 +292,7 @@
 
 (defun ca-begin (&optional candidates source)
   (interactive)
+
   ;; workarounds
   (when (looking-at "$")
     (insert-string " ") (backward-char))

@@ -16,11 +16,7 @@
 			    lisp-interaction-mode))
 
 
-;; !!!! this needs to be set before '(require 'yasnippet)' !!!!
-;; to let yasnippet not steal the tab key
-;; do not change this unless you like infinite recursions
-(defvar yas/trigger-key (kbd "C-c <kp-multiply>"))
-(defvar yas/fallback-behaviour 'return-nil)
+;; this needs to be set before '(require 'yasnippet)'
 ;; change this to your liking, but it tab would interfer 
 ;; with completion within yas templates.
 (defvar yas/next-field-key (kbd "C-f"))
@@ -40,7 +36,7 @@
      ;; experimental, but faster version. 
      ;; you need to run ca-semantic-clear-cache 
      ;; to update cached tags tables
-     (require 'ca2+semantic)
+     ;; (require 'ca2+semantic)
      (ca-add-completion-source ca-source-semantic-context
 			       '(c++-mode c-mode java-mode))
      (ca-add-completion-source ca-source-semantic-tags
