@@ -301,7 +301,9 @@
     (setq ca-highlight-parentheses-mode t)
     (highlight-parentheses-mode 0))
 
-  ;; TODO put all these in one alist
+  ;; TODO put all these in one alist. not sure if this is needed
+  ;; but it seems to fix a bug with active completion and then 
+  ;; changing buffers
   (set (make-local-variable 'ca-current-candidate)
        ca-current-candidate)
   (set (make-local-variable 'ca-current-source)
@@ -326,7 +328,8 @@
        ca-complete-word-on)
   (set (make-local-variable 'ca-substring-match-on)
        ca-substring-match-on)
-
+  (set (make-local-variable 'ca-pseudo-tooltip-overlays)
+       ca-pseudo-tooltip-overlays)
 
   (if (not candidates)
       (ca-get-candidates)
