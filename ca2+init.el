@@ -80,7 +80,9 @@
      ;; this source tries to figure out from context what 
      ;; preferred candidates are. e.g: for 'int bla =' it 
      ;; finds vars and functions that have int as type, 
-     ;; same within function arguments
+     ;; same within function arguments. it also sorts candidates
+     ;; first that have members from which the desired 
+     ;; type is reachable (when using ca2+semantic).
      (ca-add-completion-source ca-source-semantic-context
 			       '(c++-mode c-mode java-mode))
 
