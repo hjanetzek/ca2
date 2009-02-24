@@ -46,7 +46,7 @@
 			       '(c++-mode c-mode java-mode))))
 
 
-;; SEMANTIC source:
+;; YASNIPPET source:
 ;; it seems that this needs to be set before '(require 'yasnippet)'
 ;; change this to your liking, but tab would interfer with 
 ;; completion within yas templates.
@@ -55,11 +55,15 @@
 
 (eval-after-load 'yasnippet
   '(progn
+     ;; this source show possible completions when a prefix
+     ;; matches more than one yasnippet template
      (ca-add-completion-source ca-source-yasnippet
 			       '(emacs-lisp-mode 
 				 lisp-interaction-mode
 				 c++-mode c-mode java-mode 
 				 'otherwise))))
+
+;; SEMANTIC source:
 (eval-after-load 'semantic
   '(progn 
      (require 'semantic-ia)
@@ -73,10 +77,10 @@
      (ca-add-completion-source ca-source-semantic-tags
 				'(c++-mode c-mode java-mode))
 
-     ;; try to figure out from context what preferred candidates
-     ;; are. e.g: for 'int bla =' it finds vars and functions
-     ;; that have int as type, same within function arguments.
-     ;; 
+     ;; this source tries to figure out from context what 
+     ;; preferred candidates are. e.g: for 'int bla =' it 
+     ;; finds vars and functions that have int as type, 
+     ;; same within function arguments
      (ca-add-completion-source ca-source-semantic-context
 			       '(c++-mode c-mode java-mode))
 
