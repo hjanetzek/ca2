@@ -301,38 +301,12 @@
     (setq ca-highlight-parentheses-mode t)
     (highlight-parentheses-mode 0))
 
-  ;; TODO put all these in one alist. not sure if this is needed
-  ;; but it seems to fix a bug with active completion and then 
-  ;; changing buffers
-  (set (make-local-variable 'ca-current-candidate)
-       ca-current-candidate)
-  (set (make-local-variable 'ca-current-source)
-       ca-current-source)
-  (set (make-local-variable 'ca-candidates)
-       ca-candidates)
-  (set (make-local-variable 'ca-all-candidates)
-       ca-all-candidates)
-  (set (make-local-variable 'ca-prefix)
-       ca-prefix)
-  (set (make-local-variable 'ca-initial-prefix)
-       ca-initial-prefix)
-  (set (make-local-variable 'ca-selection)
-       ca-selection)
-  (set (make-local-variable 'ca-last-command-change)
-       ca-last-command-change)
-  (set (make-local-variable 'ca-overlay)
-       ca-overlay)
-  (set (make-local-variable 'ca-common-overlay)
-       ca-common-overlay)
-  (set (make-local-variable 'ca-complete-word-on)
-       ca-complete-word-on)
-  (set (make-local-variable 'ca-substring-match-on)
-       ca-substring-match-on)
-  (set (make-local-variable 'ca-pseudo-tooltip-overlays)
-       ca-pseudo-tooltip-overlays)
 
   (if (not candidates)
-      (ca-get-candidates)
+      (if (not source)
+	  (ca-get-candidates)
+	(setq ca-current-source source)
+	(ca-get-candidates :current-source))
     (setq ca-current-source source)
     (setq ca-candidates candidates)
     (setq ca-all-candidates candidates)
@@ -341,6 +315,36 @@
 
   (if (null ca-candidates)
       (ca-abort)
+    ;; TODO put all these in one alist. not sure if this is needed
+    ;; but it seems to fix a bug with active completion and then 
+    ;; changing buffers
+    (set (make-local-variable 'ca-current-candidate)
+	 ca-current-candidate)
+    (set (make-local-variable 'ca-current-source)
+	 ca-current-source)
+    (set (make-local-variable 'ca-candidates)
+	 ca-candidates)
+    (set (make-local-variable 'ca-all-candidates)
+	 ca-all-candidates)
+    (set (make-local-variable 'ca-prefix)
+	 ca-prefix)
+    (set (make-local-variable 'ca-initial-prefix)
+	 ca-initial-prefix)
+    (set (make-local-variable 'ca-selection)
+	 ca-selection)
+    (set (make-local-variable 'ca-last-command-change)
+	 ca-last-command-change)
+    (set (make-local-variable 'ca-overlay)
+	 ca-overlay)
+    (set (make-local-variable 'ca-common-overlay)
+	 ca-common-overlay)
+    (set (make-local-variable 'ca-complete-word-on)
+	 ca-complete-word-on)
+    (set (make-local-variable 'ca-substring-match-on)
+	 ca-substring-match-on)
+    (set (make-local-variable 'ca-pseudo-tooltip-overlays)
+	 ca-pseudo-tooltip-overlays)
+
     (ca-enable-active-keymap)
     (setq ca-common (try-completion "" ca-candidates))
     (setq ca-last-command-change (point))
@@ -656,7 +660,7 @@
 	 (sources (delq nil sources))) ;; XXX needed?
 
     ;; cycle to next source
-    (if (and next sources ca-current-source)
+    (if (and (eq next :next-source) sources ca-current-source)
 	(let ((tmp sources))
 	  (while (and tmp (not (eq ca-current-source (car tmp))))
 	    (setq tmp (cdr tmp)))
@@ -684,8 +688,9 @@
 	    ;; filter candidates by prefix
 	    (ca-filter-candidates)
 	    (setq candidates ca-candidates)))
-
-	(setq sources (cdr sources))))
+	(if (eq next :current-source)
+	    (setq sources nil)
+	  (setq sources (cdr sources)))))
 
     (when candidates
       (message "%s candidates" (cdr-safe (assq 'name ca-current-source)))
@@ -734,7 +739,7 @@
   (setq ca-all-candidates nil)
   (setq ca-current-candidate nil)
   (setq ca-selection 0)
-  (ca-get-candidates :next))
+  (ca-get-candidates :next-source))
 
 
 (defun ca-expand-number (n)
@@ -809,36 +814,36 @@
 (defun ca-expand-common ()
   (interactive)
   (unless ca-mode (error "ca-mode not enabled"))
-  (unless ca-candidates
-    (ca-begin))
-  (if ca-candidates
-      (let ((common ca-common))
-	(if (= (length ca-prefix) (length common))
-	    ;; if there is no common part to expand
-	    (let* ((current ca-current-candidate)
-		   (delim (string-match "\\W" current (length ca-prefix))))
-	      (if delim
-		  ;; expand to the next word delimiter
-		  (setq common (substring current 0 (1+ delim)))
-		;; or expand the current candidate
-		(setq common current))))
+  (if (null ca-candidates)
+      (ca-begin)
+    (if ca-candidates
+	(let ((common ca-common))
+	  (if (= (length ca-prefix) (length common))
+	      ;; if there is no common part to expand
+	      (let* ((current (ca-candidate-string ca-current-candidate))
+		     (delim (string-match "\\W" current (length ca-prefix))))
+		(if delim
+		    ;; expand to the next word delimiter
+		    (setq common (substring  current 0 (1+ delim)))
+		  ;; or expand the current candidate
+		  (setq common current))))
 
-	(ca-insert-candidate common)
-	(setq ca-prefix common)
-	(ca-filter-candidates)
+	  (ca-insert-candidate common)
+	  (setq ca-prefix common)
+	  (ca-filter-candidates)
 
-	(if (> (length ca-candidates) 1)
-	    ;; continue,
-	    (setq ca-selection
-		  (or (position-if
-		       '(lambda (c) (equal c ca-current-candidate))
-		       ca-candidates) 0))
-	  ;; expand last left candidate  and finish
-	  (ca-insert-candidate (car ca-candidates))
-	  (ca-finish)))
+	  (if (> (length ca-candidates) 1)
+	      ;; continue,
+	      (setq ca-selection
+		    (or (position-if
+			 '(lambda (c) (equal c ca-current-candidate))
+			 ca-candidates) 0))
+	    ;; expand last left candidate  and finish
+	    (ca-insert-candidate (car ca-candidates))
+	    (ca-finish)))
 
-    (when (called-interactively-p)
-      (error "No candidates found"))))
+      (when (called-interactively-p)
+	(error "No candidates found")))))
 
 
 (defun ca-describe-candidate ()

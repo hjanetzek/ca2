@@ -330,13 +330,18 @@ COLOR specifies if color should be used."
       (let* ((ttype (semantic-tag-type tag))
 	      type members)
 
-	(while (and ttype (listp ttype))
+	(while (and ttype (listp ttype) (not (semantic-tag-type-members ttype)))
 	  ;; find parent of variable
 	  (setq type (semantic-analyze-find-tag (car ttype)))
 	  ;; check wheter the parent is typedef, TODO class, whatever
+	  ;;(or 
 	  (setq ttype (semantic-tag-get-attribute type :typedef)))
+	  ;;   (setq ttype (semantic-tag-get-attribute type :class))))
 
-	(when (and type (setq members (semantic-tag-type-members type)))	
+	(unless (setq members (semantic-tag-type-members ttype))
+	  (setq members (semantic-tag-type-members type)))
+
+	(when members
 	  ;; sort members by reachability
 	  (if (and (boundp 'semantic-analyze-cache-tags)
 		   semantic-analyze-cache-tags 
@@ -344,7 +349,7 @@ COLOR specifies if color should be used."
 	      (let* ((a ca-source-semantic-context-cntxt)
 		    (desired-type (semantic-analyze-type-constraint a)))
 		(setq members (ca-semantic-completions
-			       type
+			       (or ttype type)
 			       desired-type))))
 
 	  (if (semantic-tag-get-attribute tag :pointer)
@@ -401,6 +406,8 @@ COLOR specifies if color should be used."
     ;;(sort-by-occurrence . t)
     (name . "semantic-arguments"))
   "ca2+ source for semantic argument completion")
+
+
 
 
 (provide 'ca2+sources)
