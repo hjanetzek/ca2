@@ -32,17 +32,21 @@
 ;; mode sources
 ;; sources are pushed on the list: load lower priority sources first
 
+;; complete elisp symbols
 (ca-add-completion-source ca-source-lisp
 			  '(emacs-lisp-mode 
 			    lisp-interaction-mode))
 
 
+;; GTAGS source:
+;; complete prefixes with tags found in gtags tags table
 (eval-after-load 'gtags
   '(progn 
      (ca-add-completion-source ca-source-gtags
 			       '(c++-mode c-mode java-mode))))
 
 
+;; SEMANTIC source:
 ;; it seems that this needs to be set before '(require 'yasnippet)'
 ;; change this to your liking, but tab would interfer with 
 ;; completion within yas templates.
@@ -56,8 +60,6 @@
 				 lisp-interaction-mode
 				 c++-mode c-mode java-mode 
 				 'otherwise))))
-
-
 (eval-after-load 'semantic
   '(progn 
      (require 'semantic-ia)
@@ -66,11 +68,26 @@
      ;; to update cached tags tables
      (require 'ca2+semantic)
 
+     ;; just complete prefixes with tags found in semantics
+     ;; tags table
      (ca-add-completion-source ca-source-semantic-tags
 				'(c++-mode c-mode java-mode))
+
+     ;; try to figure out from context what preferred candidates
+     ;; are. e.g: for 'int bla =' it finds vars and functions
+     ;; that have int as type, same within function arguments.
+     ;; 
      (ca-add-completion-source ca-source-semantic-context
 			       '(c++-mode c-mode java-mode))
+
+     ;; complete via semantic context within yas function
+     ;; argument templates (created by semantic tags and
+     ;; context source)
      (ca-add-completion-source ca-source-semantic-yas-arguments
+			       '(c++-mode c-mode java-mode))
+
+     ;; use dabbrev as first completion method
+     (ca-add-completion-source ca-source-dabbrev
 			       '(c++-mode c-mode java-mode))
 
      (defun ca-semantic-completion (arg)
@@ -87,7 +104,7 @@
 
 
 
-;; general sources
+;; general sources are tried after mode specific ones 
 (ca-add-completion-source ca-source-filename
 			  'otherwise)
 
