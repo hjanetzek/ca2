@@ -387,9 +387,9 @@
 	     (> (length ca-prefix) 0))
     (let ((end (string-match ca-substring-match-delimiter ca-prefix)))
       (when end
-	(delete-region ca-last-command-change
-		       (- ca-last-command-change
-			  (- (length ca-prefix) end))))))
+	(delete-region (1+ ca-last-command-change)
+		       (1+ (- ca-last-command-change
+			      (- (length ca-prefix)  end)))))))
 
   (setq ca-current-candidate nil)
   (setq ca-current-source nil)
@@ -527,10 +527,13 @@
 	;; which ca-all-candidates were collected or
 	;; source provided all possible candidates
 	(ca-filter-candidates))
-	    ((> (length ca-prefix) 0)
-	     (ca-get-candidates))
-	(setq ca-selection 0))
-	(ca-continue))
+       
+       ;; get new candidates
+       ((> (length ca-prefix) 0)
+	(ca-get-candidates)))
+       
+      (setq ca-selection 0)
+      (ca-continue))
 
      ;; abort on other commands
      (t (ca-abort)))))
@@ -578,7 +581,7 @@
 (defun ca-source-candidates ()
   (let ((c (cdr-safe (assq 'candidates ca-current-source))))
     (if c
-	(funcall c ca-prefix))))
+	(funcall c (regexp-quote ca-prefix)))))
 
 
 (defun ca-source-check-limit ()
