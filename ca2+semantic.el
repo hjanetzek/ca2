@@ -89,6 +89,8 @@ Argument CONTEXT is an object specifying the locally derived context."
 	 (func/var-alist nil)
 	 (mtypes-alist)
 	 (use-cache nil))
+
+    ;;(message "semantic-analyze-possible-completions-default")
     
     ;; XXX is this the right way?
     (set (make-local-variable 'semantic-analyze-cache-tags) 
@@ -138,9 +140,9 @@ Argument CONTEXT is an object specifying the locally derived context."
     (when can-complete
       (if semantic-analyze-cache-tags
 	  (progn 
-	    (message "use cached tags")
+	    (when debug (message "use cached tags"))
 	    (setq c semantic-analyze-cache-tags))
-	(message "fetch tags for %s" completetext)
+	(when debug (message "fetch tags for %s" completetext))
 	;; (setq c (nconc
 	;; 	 (semantic-find-tags-by-class 'type (current-buffer))
 	;; 	 (semantic-find-tags-by-class 'function (current-buffer))
@@ -173,7 +175,9 @@ Argument CONTEXT is an object specifying the locally derived context."
 	       (zerop (length completetext)))
 	  (setq c (append c localc))	  
 	(setq use-cache t)
-	(message "use mtypes cache !!!")
+	(when debug
+	  (message "use types cache"))
+
 	(setq mtypes-alist (copy-alist semantic-analyze-cache-mtype-alist))
 	(setq func/var-alist (copy-alist semantic-analyze-cache-funcs/vars))
 	(setq c localc))
@@ -239,6 +243,9 @@ Argument CONTEXT is an object specifying the locally derived context."
 		    (setq func/var-alist (cons m func/var-alist)))
 		    (setcdr m (cons tag (cdr m))))))))
 
+	   (t
+	    (setq c (cons (car origc) c)))
+
 	   ) ;; cond
 	  (setq origc (cdr origc))) ;; while
 	) ;;let (origc c)
@@ -247,20 +254,22 @@ Argument CONTEXT is an object specifying the locally derived context."
 	(message "add mtypes to cache!!!")
 	(setq semantic-analyze-cache-mtype-alist mtypes-alist)
 	(setq semantic-analyze-cache-funcs/vars func/var-alist))
-   
+  
+      (dolist (func/vars func/var-alist)
+	(setcdr func/vars (semantic-unique-tag-table-by-name (cdr func/vars))))
+ 
+      ;; XXX check this again
       (when (or completetexttype 
 		(zerop (length completetext)))
 	(setq c localc))
 
-      (dolist (func/vars func/var-alist)
-	(setcdr func/vars (semantic-unique-tag-table-by-name (cdr func/vars))))
-
-      (setq c (ca-semantic-completions-1 completetexttype 
-				       desired-type 
-				       desired-class
-				       mtypes-alist
-				       func/var-alist
-				       c))
+      (when (or desired-type completetexttype)
+	(setq c (ca-semantic-completions-1 completetexttype 
+					   desired-type 
+					   desired-class
+					   mtypes-alist
+					   func/var-alist
+					   c)))
 
       ;; XXX TODO get some cpp to see what this does
       ;; (when desired-class
@@ -288,8 +297,8 @@ Argument CONTEXT is an object specifying the locally derived context."
 				  local-tags)
 
   ;; XXX give metasyntactic variables correct names!
-
-  (let* ((accept desired-type)
+  ;;(message "ca-semantic-completions-1")
+  (let* ((accept (if (listp desired-type) (list (car desired-type)) desired-type))
 	 (tmp accept)
 	 (tags nil))
 
@@ -297,26 +306,47 @@ Argument CONTEXT is an object specifying the locally derived context."
       (while tmp
 	(let* ((mtype (car tmp))
 	       (bla (assoc mtype mtypes-alist)))
+	  ;;(message "mtype %s" mtype)
 	  (unless (null mtype)
-	    (dolist (blub (cdr bla))
-	      (when (and blub (not (member blub accept)))
-		(setq tmp (append tmp (list blub)))
-		(setq accept (cons blub accept))))))
+	    (dolist (compound (cdr bla))
+	      (when (and compound (not (member compound accept)))
+		;;(message "%s <- %s" mtype compound)
+		(setq tmp (append tmp (list compound)))
+		(setq accept (cons compound accept))))))
 	(setq tmp (cdr tmp))))
 
     (setq accept (delete nil accept))
     
-    (when desired-type 
-      ;; add all functions and variables that have a type from which 
-      ;; desired-type is reachable
-      (dolist (cand accept)
-	(let ((funcs/vars (assoc cand func/var-alist)))
-	  (dolist (blub (cdr-safe funcs/vars)) ;; safe?
-	    (when blub
-	      (if (member blub local-tags)
-		  (setq tags (cons blub tags))
-		(setq tags (append tags (list blub)))))))))
+    
 
+    (when desired-type 
+      (let (global local)
+	;; add all functions and variables that have a type from which 
+	;; desired-type is reachable
+	(dolist (cand accept)
+	  (let ((funcs/vars (assoc cand func/var-alist)))
+	    (dolist (tag (cdr-safe funcs/vars)) ;; safe?
+	      (when tag
+		(cond 
+		 ((member tag local-tags)
+		  (setq local (cons tag local)))
+		 ;; matches desired type
+		 ((let ((ttype (semantic-tag-type tag)))
+		    ;;XXX there must be a better way
+		    (when (or (equal ttype (car desired-type))
+			      (and (listp ttype) 
+				   (equal (car ttype) (car desired-type))))
+		      (setq tags (cons tag tags)))))
+		 (t 
+		  (setq global (cons tag global))))))))
+	(setq tags (append local tags global))))
+    
+    ;; (message "desired %s" desired-type)
+    ;; (dolist (tag accept)
+    ;;   (message "accept %s" tag))
+    
+    ;; (dolist (tag tags)
+    ;;   (message "tag %s" tag))
     ;; XXX why start this at all in the first place if 
     ;; completetexttype has no members?
     (when completetexttype 
