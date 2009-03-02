@@ -449,18 +449,33 @@
 
 (defun ca-filter-candidates (&optional dont-filter-words)
   (let* ((candidates nil)
-	 (prefix (if ca-substring-match-on
-		     (replace-regexp-in-string
-		      ca-substring-match-delimiter ".*"
-		      ca-prefix)
-		   ca-prefix))
-	 (prefix (concat "^" prefix)))
+	 (prefix (concat "^" ca-prefix)))
 
-    (dolist (item ca-all-candidates)
-      (when (string-match prefix (ca-candidate-string item))
-	(push item candidates)))
-
-    (setq ca-candidates (nreverse candidates))
+    (if ca-substring-match-on 
+	;; find substring matches, sort by min positions
+	(let ((parts (split-string prefix ca-substring-match-delimiter))
+	      cnt tmp it)
+	  (dolist (cand ca-all-candidates)
+	    (setq match nil)
+	    (setq cnt 0)
+	    (setq it parts)
+	    (while it
+	      (setq match (string-match (car it) 
+					(ca-candidate-string cand)))
+	      (if (not match)
+		  (setq it nil)
+		(setq cnt (+ cnt match))
+		(setq it (cdr it))))
+	    
+	    (if match (push (cons cnt cand) tmp)))
+	  (setq tmp (sort tmp '(lambda(a b) 
+				 (< (car a) (car b)))))
+	  (setq ca-candidates (mapcar 'cdr tmp)))
+      ;; find matches for prefix
+      (dolist (item ca-all-candidates)
+	(when (string-match prefix (ca-candidate-string item))
+	  (push item candidates)))
+      (setq ca-candidates (nreverse candidates)))
 
     (ca-source-sort-by-occurrence)
 
@@ -581,7 +596,7 @@
 (defun ca-source-candidates ()
   (let ((c (cdr-safe (assq 'candidates ca-current-source))))
     (if c
-	(funcall c (regexp-quote ca-prefix)))))
+	(funcall c ca-prefix))))
 
 
 (defun ca-source-check-limit ()
@@ -675,6 +690,7 @@
 
     (while (and sources (null candidates))
       (let ((source (car sources)))
+	;;(message "try %s" (cdr-safe (assq 'name source)))
 	(setq ca-current-source source)
 	(when (ca-grab-prefix)
 	  ;; check min prefix length
