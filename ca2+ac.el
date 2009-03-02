@@ -66,6 +66,12 @@
 	  (ca-add-source-1 source mode))
       (ca-add-source-1 source modes))))
 
+;;;; add ac-sources
+;; (ca-clear-completion-sources)
+;; (ca-add-ac-source 'ac-source-yasnippet 'emacs-lisp-mode)
+;; (ca-add-ac-source 'ac-source-symbols 'emacs-lisp-mode)
+;; (ca-add-ac-source 'ac-source-files-in-current-dir 'emacs-lisp-mode)
+;; (ca-add-ac-source 'ac-source-filename 'emacs-lisp-mode)
 
 (provide 'ca2+ac)
 
@@ -123,9 +129,4 @@
 ;;       (set (make-local-variable 'ac-sources)
 ;; 	   '(ac-ca-source-semantic)))))
 
-;; (ca-clear-completion-sources)
-;; (ca-add-ac-source 'ac-source-yasnippet 'emacs-lisp-mode)
-;; (ca-add-ac-source 'ac-source-symbols 'emacs-lisp-mode)
-;; (ca-add-ac-source 'ac-source-files-in-current-dir 'emacs-lisp-mode)
-;; (ca-add-ac-source 'ac-source-filename 'emacs-lisp-mode)
 
