@@ -8,7 +8,7 @@
 ;; just uncomment the preffered method:
 
 ;; default: tab cycles to next source
-;;(define-key ca-active-map [tab] 'ca-next-source)
+(define-key ca-active-map [tab] 'ca-next-source)
 
 ;; tab cycles to next candidate
 ;;(define-key ca-active-map [tab] 'ca-cycle)
@@ -37,7 +37,9 @@
 			  '(emacs-lisp-mode 
 			    lisp-interaction-mode))
 
-
+;; (ca-add-completion-source ca-source-semanticdb-tags
+;; 			  '(emacs-lisp-mode 
+;; 			    lisp-interaction-mode))
 ;; GTAGS source:
 ;; complete prefixes with tags found in gtags tags table
 (eval-after-load 'gtags
@@ -74,8 +76,8 @@
 
      ;; just complete prefixes with tags found in semantics
      ;; tags table
-     (ca-add-completion-source ca-source-semantic-tags
-				'(c++-mode c-mode java-mode))
+     ;; (ca-add-completion-source ca-source-semantic-tags
+     ;; 				'(c++-mode c-mode))
 
      ;; this source tries to figure out from context what 
      ;; preferred candidates are. e.g: for 'int bla =' it 
@@ -84,29 +86,29 @@
      ;; first that have members from which the desired 
      ;; type is reachable (when using ca2+semantic).
      (ca-add-completion-source ca-source-semantic-context
-			       '(c++-mode c-mode java-mode))
-
-     ;; complete via semantic context within yas function
-     ;; argument templates (created by semantic tags and
-     ;; context source)
-     (ca-add-completion-source ca-source-semantic-yas-arguments
-			       '(c++-mode c-mode java-mode))
+     			       '(c++-mode c-mode))
 
      ;; use dabbrev as first completion method
-     (ca-add-completion-source ca-source-dabbrev
-			       '(c++-mode c-mode java-mode))
+     ;; (ca-add-completion-source ca-source-dabbrev
+     ;; 			       '(c++-mode c-mode java-mode))
 
-     (defun ca-semantic-completion (arg)
-       (interactive "p")
-       (self-insert-command arg)
-       (when (and (= arg 1))
-	 (ca-begin nil ca-source-semantic-context)))
+     (ca-add-completion-source ca-source-semanticdb-tags
+      			       '(c++-mode c-mode))
 
-     (defun ca-semantic-c-hook ()
-       (local-set-key "." 'ca-semantic-completion)
-       (local-set-key ">" 'ca-semantic-completion))
 
-     (add-hook 'c-mode-common-hook 'ca-semantic-c-hook)))
+     ;; (defun ca-semantic-completion (arg)
+     ;;   (interactive "p")
+     ;;   (self-insert-command arg)
+     ;;   (when (and (= arg 1))
+     ;; 	 (ca-begin nil ca-source-semantic-context)))
+
+     ;; (defun ca-semantic-c-hook ()
+     ;;   (local-set-key "." 'ca-semantic-completion)
+     ;;   (local-set-key ">" 'ca-semantic-completion))
+
+     ;; (add-hook 'c-mode-common-hook 'ca-semantic-c-hook)
+     ))
+
 
 
 
