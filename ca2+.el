@@ -598,6 +598,10 @@
     (if c
 	(funcall c ca-prefix))))
 
+(defun ca-source-init ()
+  (let ((c (cdr-safe (assq 'init ca-current-source))))
+    (if c
+	(funcall c))))
 
 (defun ca-source-check-limit ()
   (let ((limit (cdr-safe (assq 'limit ca-current-source))))
@@ -692,6 +696,7 @@
       (let ((source (car sources)))
 	;;(message "try %s" (cdr-safe (assq 'name source)))
 	(setq ca-current-source source)
+        (ca-source-init)
 	(when (ca-grab-prefix)
 	  ;; check min prefix length
 	  (when (ca-source-check-limit)
@@ -1140,7 +1145,7 @@
 
 ;;; Completion Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun ca-add-completion-source-1 (source mode)
+(defun ca-add-source-1 (source mode)
   "Add a completion source for `ca-mode'."
   (let ((sources (assoc mode ca-source-alist)))
     (unless sources
@@ -1149,12 +1154,12 @@
     (push source (cdr sources))
     source))
 
-(defun ca-add-completion-source (source modes)
+(defun ca-add-source (source modes)
   "Add a completion source."
   (if (consp modes)
       (dolist (mode modes)
-	(ca-add-completion-source-1 source mode))
-    (ca-add-completion-source-1 source modes)))
+	(ca-add-source-1 source mode))
+    (ca-add-source-1 source modes)))
 
 
 (defun ca-clear-completion-sources ()
