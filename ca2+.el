@@ -716,14 +716,15 @@
 	    (setq sources nil)
 	  (setq sources (cdr sources)))))
 
-    (when candidates
+    (if (null candidates)
+	(ca-abort)
       (message "%s candidates" (cdr-safe (assq 'name ca-current-source)))
 
       (setq ca-initial-prefix ca-prefix)
       (setq ca-substring-match-on nil) ;; set this in 'cycle and 'begin?
 
       (setq ca-current-candidate (car ca-candidates)))
-
+    
     candidates))
 
 
