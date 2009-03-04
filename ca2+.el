@@ -319,31 +319,31 @@
     ;; but it seems to fix a bug with active completion and then 
     ;; changing buffers
     (set (make-local-variable 'ca-current-candidate)
-	 ca-current-candidate)
+    	 ca-current-candidate)
     (set (make-local-variable 'ca-current-source)
-	 ca-current-source)
+    	 ca-current-source)
     (set (make-local-variable 'ca-candidates)
-	 ca-candidates)
+    	 ca-candidates)
     (set (make-local-variable 'ca-all-candidates)
-	 ca-all-candidates)
+    	 ca-all-candidates)
     (set (make-local-variable 'ca-prefix)
-	 ca-prefix)
+    	 ca-prefix)
     (set (make-local-variable 'ca-initial-prefix)
-	 ca-initial-prefix)
+    	 ca-initial-prefix)
     (set (make-local-variable 'ca-selection)
-	 ca-selection)
+    	 ca-selection)
     (set (make-local-variable 'ca-last-command-change)
-	 ca-last-command-change)
+    	 ca-last-command-change)
     (set (make-local-variable 'ca-overlay)
-	 ca-overlay)
+    	 ca-overlay)
     (set (make-local-variable 'ca-common-overlay)
-	 ca-common-overlay)
+    	 ca-common-overlay)
     (set (make-local-variable 'ca-complete-word-on)
-	 ca-complete-word-on)
+    	 ca-complete-word-on)
     (set (make-local-variable 'ca-substring-match-on)
-	 ca-substring-match-on)
+    	 ca-substring-match-on)
     (set (make-local-variable 'ca-pseudo-tooltip-overlays)
-	 ca-pseudo-tooltip-overlays)
+    	 ca-pseudo-tooltip-overlays)
 
     (ca-enable-active-keymap)
     (setq ca-common (try-completion "" ca-candidates))
@@ -486,7 +486,8 @@
 
 (defun ca-mode-pre-command ()
   (when ca-candidates
-    (ca-hide-pseudo-tooltip)
+    (unless (memq this-command '(ca-cycle ca-cycle-backwards))
+      (ca-hide-pseudo-tooltip))
     (ca-hide-overlay)
     (setq ca-last-command-change (point))))
 
@@ -500,6 +501,8 @@
      ;; char inserted
      ((eq (- (point) ca-last-command-change) 1)
       (when (looking-back ca-substring-match-delimiter)
+	(setq ca-selection 0)
+	(setq ca-current-candidate nil)
 	(setq ca-substring-match-on t))
 
       (setq ca-prefix (concat ca-prefix
@@ -559,8 +562,10 @@
       (setq ca-selection 0))
   (setq ca-common (try-completion "" ca-candidates))
   (setq ca-current-candidate (nth ca-selection ca-candidates))
+
   (ca-show-overlay)
-  (ca-show-overlay-tips))
+  (unless (memq this-command '(ca-cycle ca-cycle-backwards))
+    (ca-show-overlay-tips)))
 
 
 ;; TODO pass candidate?
@@ -795,15 +800,40 @@
   (unless ca-mode (error "ca-mode not enabled"))
   (unless ca-candidates
     (ca-begin))
-  (if ca-candidates
+  (if (null ca-candidates)
+      (message "No candidates found")
+    
+    (let ((last-offset (ca-get-selection-offset))
+	  (last-selection ca-selection)
+	  offset last-ov sel-ov)
+
       (setq ca-selection
-            (min (max 0 (+ ca-selection (or n 1)))
-                 (1- (length ca-candidates))))
-    (message "No candidates found"))
-  (if ca-candidates
+	    (min (max 0 (+ ca-selection (or n 1)))
+		 (1- (length ca-candidates))))
+    
+      (setq offset (ca-get-selection-offset))
+      (when (not (= last-selection ca-selection))
+	(if (not (= last-offset offset))
+	    ;; recreate overlay with new offset (page)
+	    (ca-show-overlay-tips)
+	  ;; update current overlays
+	  (setq last-ov (nth (- last-selection offset)
+			     (reverse ca-pseudo-tooltip-overlays)))
+	  (setq sel-ov  (nth (- ca-selection offset)
+			     (reverse ca-pseudo-tooltip-overlays)))
+	  (overlay-put last-ov
+		       'after-string
+		       (propertize (overlay-get last-ov 'after-string) 
+				   'face 'ca-pseudo-tooltip-face))
+	  (overlay-put sel-ov 
+		     'after-string
+		     (propertize (overlay-get sel-ov 'after-string) 
+				 'face 'ca-pseudo-tooltip-selection-face))))
+
+      ;; show info for candidate
       (let ((cand (nth ca-selection ca-candidates)))
 	(when (consp cand)
-	  (ca-source-candidate-info cand)))))
+	  (ca-source-candidate-info cand))))))
 
 
 (defun ca-cycle-backwards (&optional n)
@@ -913,7 +943,7 @@
 
 (defun ca-put-overlay (beg end &optional prop value prop2 value2)
   (let ((ov (make-overlay beg end)))
-    (overlay-put ov 'window t)
+    (overlay-put ov 'window (selected-window))
     (when prop
       (overlay-put ov prop value)
       (when prop2
@@ -935,22 +965,21 @@
       new-list)))
 
 
-(defsubst ca-get-selection-offset (page-size)
-  (when ca-how-many-candidates-to-show
-    (setq page-size (min page-size ca-how-many-candidates-to-show)))
-  (let ((offset (* (/ ca-selection page-size) page-size)))
-    offset))
+(defsubst ca-get-page-size ()
+  (let* ((max-lines (- (window-height) 4))
+	 (max-lines (if (< max-lines 0) 1 max-lines))
+	 (page-size (min max-lines ca-how-many-candidates-to-show)))
+    page-size))
 
+(defsubst ca-get-selection-offset ()
+  (let ((page-size (ca-get-page-size)))
+    (* (/ ca-selection page-size) page-size)))
+	
 
-(defsubst ca-pick-candidates (page-size)
-  (when ca-how-many-candidates-to-show
-    (setq page-size (min page-size ca-how-many-candidates-to-show)))
-  (if t ;;(ca-tooltip-entire-names)
-      (ca-sublist ca-candidates
-		  (ca-get-selection-offset page-size) page-size)
-    (mapcar 'ca-chop
-	    (ca-sublist ca-candidates
-			(ca-get-selection-offset page-size) page-size))))
+(defsubst ca-pick-candidates ()
+  (ca-sublist ca-candidates 
+	      (ca-get-selection-offset) 
+	      (ca-get-page-size)))
 
 
 (defun ca-show-overlay ()
@@ -982,8 +1011,8 @@
 
 (defun ca-show-overlay-tips ()
   (when (cdr ca-candidates)
-    (when (eq ca-display-style 'pseudo-tooltip)
-      (ca-show-list-pseudo-tooltip))))
+    ;; (when (eq ca-display-style 'pseudo-tooltip)
+    (ca-show-list-pseudo-tooltip)))
 
 
 (defun ca-hide-overlay ()
@@ -1004,12 +1033,9 @@
 ;;; pseudo tooltip ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun ca-show-list-pseudo-tooltip (&optional point)
-  (let* ((max-lines (- (window-height) 4))
-	 (max-lines (if (< max-lines 0) 1 max-lines))
-         (candidates (ca-pick-candidates max-lines)))
-    (ca-show-pseudo-tooltip-at-point
-     candidates
-     (- ca-selection (ca-get-selection-offset max-lines)))))
+  (ca-show-pseudo-tooltip-at-point (ca-pick-candidates)
+				   (- ca-selection 
+				      (ca-get-selection-offset))))
 
 
 (defun ca-hide-pseudo-tooltip ()
@@ -1029,32 +1055,37 @@
         (progn (setq before-string
                      (make-string (- start (current-column)) ? ))
                (setq beg-point (point)))
-      (goto-char (point-at-bol)) ;; Emacs bug, move-to-column is wrong otherwise
+ 
+     (goto-char (point-at-bol)) ;; Emacs bug, move-to-column is wrong otherwise
       (move-to-column start)
       (setq beg-point (point))
       (when (> (current-column) start)
         (goto-char (1- (point)))
         (setq beg-point (point))
         (setq before-string (make-string (- start (current-column)) ? ))))
+
     (move-to-column end)
     (setq end-point (point))
+
     (let ((end-offset (- (current-column) end)))
       (when (> end-offset 0)
         (setq after-string (make-string end-offset ?b))))
+
     (when no-insert
       ;; prevent inheriting of faces
       (setq before-string (when before-string
                             (propertize before-string 'face 'default)))
       (setq after-string (when after-string
                            (propertize after-string 'face 'default))))
+
     (let ((string (concat before-string
                           replacement
                           after-string)))
       (if no-insert
           string
         (push (ca-put-overlay beg-point end-point
-                                   'invisible t
-                                   'after-string string)
+			      'invisible t
+			      'after-string string)
               ca-pseudo-tooltip-overlays)))))
 
 
@@ -1081,6 +1112,7 @@
 
 (defun ca-show-pseudo-tooltip-at-point (lines &optional highlight)
   (ca-hide-pseudo-tooltip)
+
   (let ((lines-to-bottom (- (window-height) (count-lines (point) (window-start)))))
     (if (<= lines-to-bottom (length lines))
 	(scroll-down (+ (- lines-to-bottom (length lines) 2)))))
@@ -1117,8 +1149,10 @@
     (save-excursion
       (let ((max (point-max)))
         (while (and lines (/= (vertical-motion 1) 0))
-          (ca-show-pseudo-tooltip-line (+ (current-column) start)
-                                            (pop lines)))
+          (ca-show-pseudo-tooltip-line (+ (current-column)
+					  (window-hscroll) 
+					  start)
+				       (pop lines)))
         (when lines
           ;; append to end of buffer in one giant
           (let* ((newline (propertize "\n" 'face 'default))
