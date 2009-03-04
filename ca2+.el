@@ -93,11 +93,11 @@
   :type '(choice (const :tag "Off" nil)
                  (const :tag "On" t)))
 
-(defcustom ca-display-style 'pseudo-tooltip
+(defcustom ca-display-style 'tooltip
   "*Determines how to display possible candidates."
   :group 'ca-mode
   :type '(choice (const :tag "None" nil)
-                 (const :tag "Pseudo Tooltip" pseudo-tooltip)))
+                 (const :tag "Pseudo Tooltip" tooltip)))
 
 (defface ca-common-face
   '((((class color) (background dark))
@@ -115,15 +115,15 @@
   "*Face used for first complete match during dynamic completion."
   :group 'ca-mode)
 
-(defface ca-pseudo-tooltip-face
+(defface ca-tooltip-face
   '((t :inherit default
        :background "gray20"
        :foreground "gray85"))
   "*Bla."
   :group 'ca-mode)
 
-(defface ca-pseudo-tooltip-selection-face
-  '((t :inherit ca-pseudo-tooltip-face
+(defface ca-tooltip-selection-face
+  '((t :inherit ca-tooltip-face
        :background "gray28"
        :foreground "white")
     )
@@ -159,7 +159,7 @@
 (defvar ca-overlay nil)
 (defvar ca-common-overlay nil)
 (defvar ca-hide-overlay nil)
-(defvar ca-pseudo-tooltip-overlays nil)
+(defvar ca-tooltip-overlays nil)
 (defvar ca-source-alist nil)
 (defvar ca-common nil)
 (defvar ca-candidates nil)
@@ -264,7 +264,7 @@
         (setq ca-hide-overlay nil)
         (setq ca-candidates nil)
         (setq ca-all-candidates nil)
-        (setq ca-pseudo-tooltip-overlays nil)
+        (setq ca-tooltip-overlays nil)
         (setq ca-selection 0)
 	(setq ca-complete-word-on nil)
 	(setq ca-substring-match-on nil)
@@ -342,8 +342,8 @@
     	 ca-complete-word-on)
     (set (make-local-variable 'ca-substring-match-on)
     	 ca-substring-match-on)
-    (set (make-local-variable 'ca-pseudo-tooltip-overlays)
-    	 ca-pseudo-tooltip-overlays)
+    (set (make-local-variable 'ca-tooltip-overlays)
+    	 ca-tooltip-overlays)
 
     (ca-enable-active-keymap)
     (setq ca-common (try-completion "" ca-candidates))
@@ -367,7 +367,7 @@
   (setq ca-all-candidates nil)
   (setq ca-substring-match-on nil)
   (ca-hide-overlay)
-  (ca-hide-pseudo-tooltip)
+  (ca-hide-tooltip)
   (ca-kill-description-buffer)
   ;; workarounds
   (when (looking-at " $") (delete-char 1))
@@ -487,7 +487,7 @@
 (defun ca-mode-pre-command ()
   (when ca-candidates
     (unless (memq this-command '(ca-cycle ca-cycle-backwards))
-      (ca-hide-pseudo-tooltip))
+      (ca-hide-tooltip))
     (ca-hide-overlay)
     (setq ca-last-command-change (point))))
 
@@ -818,21 +818,21 @@
 	    (ca-show-overlay-tips)
 	  ;; update overlays
 	  (setq ov (nth (- last-selection offset)
-			(reverse ca-pseudo-tooltip-overlays)))
+			(reverse ca-tooltip-overlays)))
 	  (setq before (overlay-get ov 'before))
 	  (setq str (overlay-get ov 'after-string))
 	  (setq str (concat (substring str 0 before)
 			    (propertize (substring str before) 
-					'face 'ca-pseudo-tooltip-face)))
+					'face 'ca-tooltip-face)))
 	  (overlay-put ov 'after-string str)
 
 	  (setq ov (nth (- ca-selection offset)
-			(reverse ca-pseudo-tooltip-overlays)))
+			(reverse ca-tooltip-overlays)))
 	  (setq before (overlay-get ov 'before))
 	  (setq str (overlay-get ov 'after-string))
 	  (setq str (concat (substring str 0 before)
 			    (propertize (substring str before) 
-					'face 'ca-pseudo-tooltip-selection-face)))
+					'face 'ca-tooltip-selection-face)))
 	  (overlay-put ov 'after-string str)))
 
       ;; show info for candidate
@@ -1018,8 +1018,8 @@
 
 (defun ca-show-overlay-tips ()
   (when (cdr ca-candidates)
-    ;; (when (eq ca-display-style 'pseudo-tooltip)
-    (ca-show-list-pseudo-tooltip)))
+    ;; (when (eq ca-display-style 'tooltip)
+    (ca-show-list-tooltip)))
 
 
 (defun ca-hide-overlay ()
@@ -1039,22 +1039,29 @@
 
 ;;; pseudo tooltip ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun ca-show-list-pseudo-tooltip (&optional point)
-  (ca-show-pseudo-tooltip-at-point (ca-pick-candidates)
-				   (- ca-selection 
-				      (ca-get-selection-offset))))
+(defun ca-show-list-tooltip (&optional point)
+  (let* ((candidates (ca-pick-candidates))
+	 (cnt (length candidates))
+	 (to-bottom (- (window-height)
+		       (count-lines (point) (window-start)))))
+    (if (<= to-bottom cnt)
+	(scroll-down (+ (- to-bottom cnt 2))))
+
+    (ca-show-tooltip-at-point candidates
+			      (- ca-selection 
+				 (ca-get-selection-offset)))))
 
 
-(defun ca-hide-pseudo-tooltip ()
-  (dolist (ov ca-pseudo-tooltip-overlays)
+(defun ca-hide-tooltip ()
+  (dolist (ov ca-tooltip-overlays)
     ;; TODO put this in an extra place
     (when (overlay-get ov 'tmp)
       (delete-region (overlay-start ov) (overlay-end ov)))
     (delete-overlay ov))
-  (setq ca-pseudo-tooltip-overlays nil))
+  (setq ca-tooltip-overlays nil))
 
 
-(defun ca-show-pseudo-tooltip-line (start replacement)
+(defun ca-show-tooltip-line (start replacement)
   ;; start might be in the middle of a tab, which means we need to
   ;; hide the tab and add spaces
   (let ((end (+ start (length replacement)))
@@ -1089,10 +1096,10 @@
 			  'invisible t
 			  'before (length before-string)
 			  'after-string string)
-	  ca-pseudo-tooltip-overlays)))
+	  ca-tooltip-overlays)))
 
 
-(defun ca-pseudo-tooltip-strip ()
+(defun ca-tooltip-strip ()
   (let ((sep (ca-source-separator))
 	(strip 0))
     ;; start at last separator
@@ -1102,14 +1109,9 @@
       (if strip (1+ strip) 0))))
 
 
-(defun ca-show-pseudo-tooltip-at-point (lines &optional highlight)
-  (ca-hide-pseudo-tooltip)
-
-  (let ((lines-to-bottom (- (window-height) (count-lines (point) (window-start)))))
-    (if (<= lines-to-bottom (length lines))
-	(scroll-down (+ (- lines-to-bottom (length lines) 2)))))
-
-  (let* ((strip (ca-pseudo-tooltip-strip))
+(defun ca-show-tooltip-at-point (lines &optional highlight)
+  (ca-hide-tooltip)
+  (let* ((strip (ca-tooltip-strip))
 	 (start (- (- (current-column)
 		      (- (length ca-prefix) strip))
 		   (window-hscroll)))
@@ -1136,8 +1138,8 @@
                          ;; we might be at the right end of the buffer
                          (substring line 0 max-length))
                        'face (if (equal (incf i) highlight)
-                                 'ca-pseudo-tooltip-selection-face
-                               'ca-pseudo-tooltip-face))))
+                                 'ca-tooltip-selection-face
+                               'ca-tooltip-face))))
                  lines lengths))
 	 (tmp nil))
     (save-excursion
@@ -1151,12 +1153,12 @@
 	    (overlay-put tmp 'tmp t)
 	    (goto-char (1+ end))))
 	  
-	(ca-show-pseudo-tooltip-line (+ (current-column)
-					(window-hscroll) 
-					start)
-				     (pop lines))))
+	(ca-show-tooltip-line (+ (current-column)
+				 (window-hscroll) 
+				 start)
+			      (pop lines))))
     (when tmp
-      (push tmp ca-pseudo-tooltip-overlays))))
+      (push tmp ca-tooltip-overlays))))
 
 
 
