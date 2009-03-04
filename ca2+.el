@@ -805,7 +805,7 @@
     
     (let ((last-offset (ca-get-selection-offset))
 	  (last-selection ca-selection)
-	  offset last-ov sel-ov)
+	  offset ov str)
 
       (setq ca-selection
 	    (min (max 0 (+ ca-selection (or n 1)))
@@ -816,19 +816,18 @@
 	(if (not (= last-offset offset))
 	    ;; recreate overlay with new offset (page)
 	    (ca-show-overlay-tips)
-	  ;; update current overlays
-	  (setq last-ov (nth (- last-selection offset)
-			     (reverse ca-pseudo-tooltip-overlays)))
-	  (setq sel-ov  (nth (- ca-selection offset)
-			     (reverse ca-pseudo-tooltip-overlays)))
-	  (overlay-put last-ov
-		       'after-string
-		       (propertize (overlay-get last-ov 'after-string) 
-				   'face 'ca-pseudo-tooltip-face))
-	  (overlay-put sel-ov 
-		     'after-string
-		     (propertize (overlay-get sel-ov 'after-string) 
-				 'face 'ca-pseudo-tooltip-selection-face))))
+	  ;; update overlays
+	  (setq ov (nth (- last-selection offset)
+			(reverse ca-pseudo-tooltip-overlays)))
+	  (setq str (overlay-get ov 'after-string))
+	  (setq str (propertize str 'face 'ca-pseudo-tooltip-face))
+	  (overlay-put ov 'after-string str)
+
+	  (setq ov (nth (- ca-selection offset)
+			(reverse ca-pseudo-tooltip-overlays)))
+	  (setq str (overlay-get ov 'after-string))
+	  (setq str (propertize str 'face 'ca-pseudo-tooltip-selection-face))
+	  (overlay-put ov 'after-string str)))
 
       ;; show info for candidate
       (let ((cand (nth ca-selection ca-candidates)))
@@ -1040,11 +1039,14 @@
 
 (defun ca-hide-pseudo-tooltip ()
   (dolist (ov ca-pseudo-tooltip-overlays)
+    ;; TODO put this in an extra place
+    (when (overlay-get ov 'tmp)
+      (delete-region (overlay-start ov) (overlay-end ov)))
     (delete-overlay ov))
   (setq ca-pseudo-tooltip-overlays nil))
 
 
-(defun ca-show-pseudo-tooltip-line (start replacement &optional no-insert)
+(defun ca-show-pseudo-tooltip-line (start replacement)
   ;; start might be in the middle of a tab, which means we need to hide the
   ;; tab and add spaces
   (let ((end (+ start (length replacement)))
@@ -1071,22 +1073,13 @@
       (when (> end-offset 0)
         (setq after-string (make-string end-offset ?b))))
 
-    (when no-insert
-      ;; prevent inheriting of faces
-      (setq before-string (when before-string
-                            (propertize before-string 'face 'default)))
-      (setq after-string (when after-string
-                           (propertize after-string 'face 'default))))
-
     (let ((string (concat before-string
                           replacement
                           after-string)))
-      (if no-insert
-          string
-        (push (ca-put-overlay beg-point end-point
-			      'invisible t
-			      'after-string string)
-              ca-pseudo-tooltip-overlays)))))
+      (push (ca-put-overlay beg-point end-point
+			    'invisible t
+			    'after-string string)
+	    ca-pseudo-tooltip-overlays))))
 
 
 (defun ca-pseudo-tooltip-strip ()
@@ -1121,6 +1114,7 @@
 	 (start (- (- (current-column)
 		      (- (length ca-prefix) strip))
 		   (window-hscroll)))
+	 
 	 (lines (if (consp (car lines)) (mapcar 'car lines) lines))
 	 ;; strip redundant prefix
 	 (lines (if (> strip 0)
@@ -1145,37 +1139,26 @@
                        'face (if (equal (incf i) highlight)
                                  'ca-pseudo-tooltip-selection-face
                                'ca-pseudo-tooltip-face))))
-                 lines lengths)))
+                 lines lengths))
+	 (tmp nil))
     (save-excursion
-      (let ((max (point-max)))
-        (while (and lines (/= (vertical-motion 1) 0))
-          (ca-show-pseudo-tooltip-line (+ (current-column)
-					  (window-hscroll) 
-					  start)
-				       (pop lines)))
-        (when lines
-          ;; append to end of buffer in one giant
-          (let* ((newline (propertize "\n" 'face 'default))
-                 (append newline))
-            (while lines
-              (setq append
-                    (concat append
-                            (ca-show-pseudo-tooltip-line
-                             (+ (window-hscroll) (+ (current-column) start))
-			     (pop lines) t)
-                             newline)))
-            ;; Add the appended lines to the last overlay, unless we didn't
-            ;; create any yet, or we aren't at point-max yet.  We have to
-            ;; append, because otherwise two overlays, both at point-max, will
-            ;; be in reversed order.
-            (let ((ov (car-safe ca-pseudo-tooltip-overlays)))
-              (unless (and ov
-                           (= (overlay-end ov) (point-max)))
-                (setq ov (make-overlay (point-max) (point-max)))
-                (push ov ca-pseudo-tooltip-overlays))
-              (overlay-put ov 'after-string
-                           (concat (overlay-get ov 'after-string)
-                                   append)))))))))
+      (while lines
+	(when (and (= (vertical-motion 1) 0) (not tmp))
+	  ;; insert temporary overlay at the end of buffer
+	  (let ((end (point-at-eol)))
+	    (goto-char end)
+	    (insert-char 10 (length lines))
+	    (setq tmp (make-overlay end (point)))
+	    (overlay-put tmp 'tmp t)
+	    (goto-char (1+ end))))
+	  
+	(ca-show-pseudo-tooltip-line (+ (current-column)
+					(window-hscroll) 
+					start)
+				     (pop lines))))
+    (when tmp
+      (push tmp ca-pseudo-tooltip-overlays))))
+
 
 
 ;;; Completion Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
