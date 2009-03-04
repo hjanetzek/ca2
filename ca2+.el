@@ -805,7 +805,7 @@
     
     (let ((last-offset (ca-get-selection-offset))
 	  (last-selection ca-selection)
-	  offset ov str)
+	  offset ov str before)
 
       (setq ca-selection
 	    (min (max 0 (+ ca-selection (or n 1)))
@@ -819,14 +819,20 @@
 	  ;; update overlays
 	  (setq ov (nth (- last-selection offset)
 			(reverse ca-pseudo-tooltip-overlays)))
+	  (setq before (overlay-get ov 'before))
 	  (setq str (overlay-get ov 'after-string))
-	  (setq str (propertize str 'face 'ca-pseudo-tooltip-face))
+	  (setq str (concat (substring str 0 before)
+			    (propertize (substring str before) 
+					'face 'ca-pseudo-tooltip-face)))
 	  (overlay-put ov 'after-string str)
 
 	  (setq ov (nth (- ca-selection offset)
 			(reverse ca-pseudo-tooltip-overlays)))
+	  (setq before (overlay-get ov 'before))
 	  (setq str (overlay-get ov 'after-string))
-	  (setq str (propertize str 'face 'ca-pseudo-tooltip-selection-face))
+	  (setq str (concat (substring str 0 before)
+			    (propertize (substring str before) 
+					'face 'ca-pseudo-tooltip-selection-face)))
 	  (overlay-put ov 'after-string str)))
 
       ;; show info for candidate
@@ -940,13 +946,15 @@
      ,@body))
 
 
-(defun ca-put-overlay (beg end &optional prop value prop2 value2)
+(defun ca-put-overlay (beg end &optional prop value prop2 value2 prop3 value3)
   (let ((ov (make-overlay beg end)))
     (overlay-put ov 'window (selected-window))
     (when prop
       (overlay-put ov prop value)
       (when prop2
-        (overlay-put ov prop2 value2)))
+        (overlay-put ov prop2 value2)
+	(when prop3
+	  (overlay-put ov prop3 value3))))
     (when (eq prop 'keymap)
       (overlay-put ov 'face 'ca-common-face))
     ov))
@@ -1047,18 +1055,20 @@
 
 
 (defun ca-show-pseudo-tooltip-line (start replacement)
-  ;; start might be in the middle of a tab, which means we need to hide the
-  ;; tab and add spaces
+  ;; start might be in the middle of a tab, which means we need to
+  ;; hide the tab and add spaces
   (let ((end (+ start (length replacement)))
         beg-point end-point
-        before-string after-string)
+        before-string after-string string)
+
     (goto-char (point-at-eol))
     (if (< (current-column) start)
         (progn (setq before-string
                      (make-string (- start (current-column)) ? ))
                (setq beg-point (point)))
- 
-     (goto-char (point-at-bol)) ;; Emacs bug, move-to-column is wrong otherwise
+
+      ;; Emacs bug, move-to-column is wrong otherwise
+      (goto-char (point-at-bol)) 
       (move-to-column start)
       (setq beg-point (point))
       (when (> (current-column) start)
@@ -1073,34 +1083,23 @@
       (when (> end-offset 0)
         (setq after-string (make-string end-offset ?b))))
 
-    (let ((string (concat before-string
-                          replacement
-                          after-string)))
-      (push (ca-put-overlay beg-point end-point
-			    'invisible t
-			    'after-string string)
-	    ca-pseudo-tooltip-overlays))))
+    (setq string (concat before-string replacement after-string))
+
+    (push (ca-put-overlay beg-point end-point
+			  'invisible t
+			  'before (length before-string)
+			  'after-string string)
+	  ca-pseudo-tooltip-overlays)))
 
 
 (defun ca-pseudo-tooltip-strip ()
-  (let* ((sepstart nil)
-	 (separator (ca-source-separator))
-	 (start
-	  (cond
-	  ;; start at last separator
-	  ((and ca-common separator)
-	   (setq sepstart (string-match
-			   (concat "\\("separator "\\)[^" separator "]*$")
-			   ca-prefix))
-	   (if sepstart (1+ sepstart) 0))
-	  ;; start at beginning of prefix
-	  (t ;;(ca-tooltip-entire-names)
-	   0)
-	  ;; start at current column
-	  ;;(t
-	  ;; (length ca-prefix))
-	  )))
-    start))
+  (let ((sep (ca-source-separator))
+	(strip 0))
+    ;; start at last separator
+    (if (not (and ca-common sep))
+	strip
+      (setq strip (string-match (concat "\\(" sep "\\)[^" sep "]*$") ca-prefix))
+      (if strip (1+ strip) 0))))
 
 
 (defun ca-show-pseudo-tooltip-at-point (lines &optional highlight)
