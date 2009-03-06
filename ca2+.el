@@ -109,7 +109,7 @@
 
 (defface ca-expand-face
   '((((class color) (background dark))
-     (:foreground "DarkOrchid1"))
+     (:foreground "coral3"))
     (((class color) (background light))
      (:background "orange")))
   "*Face used for first complete match during dynamic completion."
@@ -315,9 +315,10 @@
 
   (if (null ca-candidates)
       (ca-abort)
-    ;; TODO put all these in one alist. not sure if this is needed
-    ;; but it seems to fix a bug with active completion and then 
-    ;; changing buffers
+    ;; TODO put all these in one alist. not sure if this is needed but
+    ;; it seems to fix a bug with active completion and then changing
+    ;; buffers, also fixes the bug that overlays wont be deleted when
+    ;; semantic starts idle parsing while menu is active.
     (set (make-local-variable 'ca-current-candidate)
     	 ca-current-candidate)
     (set (make-local-variable 'ca-current-source)
@@ -421,9 +422,7 @@
   (if (or (not (ca-source-has-common-prefix))
 	  (<= (length ca-candidates)
 	      ca-how-many-candidates-to-show))
-      (progn
-	(setq ca-complete-word-on nil)
-	candidates)
+      (setq ca-complete-word-on nil)
     (let ((cands nil)
 	  (len (length ca-prefix))
 	  cand end)
@@ -454,7 +453,7 @@
     (if ca-substring-match-on 
 	;; find substring matches, sort by min positions
 	(let ((parts (split-string prefix ca-substring-match-delimiter))
-	      cnt tmp it)
+	      cnt it)
 	  (dolist (cand ca-all-candidates)
 	    (setq match nil)
 	    (setq cnt 0)
@@ -467,14 +466,29 @@
 		(setq cnt (+ cnt match))
 		(setq it (cdr it))))
 	    
-	    (if match (push (cons cnt cand) tmp)))
-	  (setq tmp (sort tmp '(lambda(a b) 
-				 (< (car a) (car b)))))
-	  (setq ca-candidates (mapcar 'cdr tmp)))
+	    (if match (push (cons cnt cand) candidates)))
+
+	  (setq candidates (sort candidates '(lambda(a b) 
+					       (< (car a) (car b)))))
+
+	  (setq ca-candidates (mapcar 'cdr candidates)))
+
       ;; find matches for prefix
       (dolist (item ca-all-candidates)
 	(when (string-match prefix (ca-candidate-string item))
 	  (push item candidates)))
+
+      (setq ca-candidates (nreverse candidates)))
+
+    ;; match each char in order to prevent exiting 
+    ;; completion on some common typos
+    (unless candidates
+      (setq prefix (replace-regexp-in-string 
+		    (concat "\\(\\w\\)" ca-substring-match-delimiter "?") 
+		    "\\1.*" prefix))
+      (dolist (cand ca-all-candidates)
+	(when (string-match prefix (ca-candidate-string cand))
+	  (push cand candidates)))
       (setq ca-candidates (nreverse candidates)))
 
     (ca-source-sort-by-occurrence)
@@ -987,7 +1001,6 @@
   (ca-sublist ca-candidates 
 	      (ca-get-selection-offset) 
 	      (ca-get-page-size)))
-
 
 (defun ca-show-overlay ()
   (if ca-overlay
