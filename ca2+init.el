@@ -27,7 +27,6 @@
 ;; cycling sources
 ;; (define-key ca-active-map "\M-h" 'ca-next-source)
 
-
 (ca-clear-completion-sources)
 
 ;;;; MODE SPECIFIC sources
@@ -60,9 +59,12 @@
      (require 'ca2+semantic)
 
      ;;;; complete prefix with tags found in semantics tags table
-     ;; (ca-add-completion-source ca-source-semantic-tags
-     ;; 				'(c++-mode c-mode))
+     ;;(ca-add-source ca-source-semantic-tags
+     ;; 		    '(c++-mode c-mode))
 
+     (ca-add-source ca-source-semanticdb-tags
+      		    '(c++-mode c-mode))
+     
      ;;;; this source tries to figure out from context what preferred
      ;; candidates are. e.g: for 'int bla =' it finds vars and
      ;; functions that have int as type, same within function
@@ -72,13 +74,11 @@
      (ca-add-source ca-source-semantic-context
 		    '(c++-mode c-mode))
 
-     (ca-add-source ca-source-semanticdb-tags
-		    '(c++-mode c-mode))
      
      ;;;; use dabbrev to get completion fast, but allow to C-ret 
      ;; trigger semantic action for selected candidate
-     ;; (ca-add-completion-source ca-source-semantic-with-dabbrev
-     ;;  			       '(c++-mode c-mode))
+     ;; (ca-add-source ca-source-semantic-with-dabbrev
+     ;; 		    '(c++-mode c-mode))
      
      ;;;; OMNICOMPLETION:
      ;; uncomment things below for omnicompletion. though you can just
