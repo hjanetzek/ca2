@@ -147,11 +147,22 @@ Argument CONTEXT is an object specifying the locally derived context."
 	;; 	 (semantic-find-tags-by-class 'type (current-buffer))
 	;; 	 (semantic-find-tags-by-class 'function (current-buffer))
 	;; 	 (semantic-find-tags-by-class 'variable (current-buffer))))
-	(setq c (semantic-analyze-find-tags-by-prefix completetext))
+
+	(setq c (let ((cands nil))
+		  (mapc '(lambda (tag)
+			   (unless (or (semantic-tag-get-attribute tag :faux)
+				       (semantic-tag-of-class-p tag 'include))
+			     (push tag cands)))
+			(semanticdb-fast-strip-find-results 
+			 (semanticdb-find-tags-for-completion "")))
+		  (semantic-unique-tag-table-by-name cands)))
+
+	(unless c
+	  (setq c (semantic-analyze-find-tags-by-prefix "" )));;completetext)))
 	;;(setq c (semantic-fetch-tags))
 	;; we fetched all global tags 
-	(if (zerop (length completetext))
-	    (setq semantic-analyze-cache-tags c)))
+	;;(if (zerop (length completetext))
+	(setq semantic-analyze-cache-tags c));;)
 
       (if completetexttype
 	  (setq localc (semantic-tag-type-members completetexttype))
@@ -168,7 +179,9 @@ Argument CONTEXT is an object specifying the locally derived context."
 	  (setq c (append (semantic-find-tags-for-completion 
 			   completetext
 			   (semantic-analyze-scoped-type-parts 
-			    completetexttype scope))
+			    completetexttype (oref 
+					      scope 
+					      fullscope)))
 			  c)))
 
       (if (and (not semantic-analyze-cache-mtype-alist)
@@ -211,18 +224,20 @@ Argument CONTEXT is an object specifying the locally derived context."
 		   (tname (semantic-tag-name tag))
 		   (class (semantic-tag-class tag))
 		   (typedef (car-safe (semantic-tag-get-attribute tag :typedef)))
+		   (sup (semantic-tag-get-attribute tag :superclasses))
 		   (dtype (car desired-type))
 		   found mtype mtypes)
-	      (cond 
-	       ;; XXX how to make this generic?
-	       (typedef
-		(let* ((m (assoc typedef mtypes-alist)))
+	      ;; (if enum
+	      ;; 	  (message "enum: %s" tag))
+	       (if sup
+		;; TODO (dolist (superclass sup) for multiple ingeritance?
+		(let* ((m (assoc sup mtypes-alist)))
 		  (unless m 
-		    (setq m (cons typedef nil))
+		    (setq m (cons sup nil))
 		    (setq mtypes-alist (cons m mtypes-alist)))
 		  (setcdr m (cons tname (cdr m)))))
-
-	       (members
+	       
+	       (if members
 		(dolist (member members)
 		  (let ((mtype (semantic-tag-type member)))
 		    (if (listp mtype)
@@ -232,9 +247,11 @@ Argument CONTEXT is an object specifying the locally derived context."
 			(setq m (cons mtype nil))
 			(setq mtypes-alist (cons m mtypes-alist)))
 		      (setcdr m (cons tname (cdr m)))))))
-
+	       (cond 
 	       ((or (semantic-tag-of-class-p tag 'variable)
-		    (semantic-tag-of-class-p tag 'function)) 
+		    (semantic-tag-of-class-p tag 'function)
+		    ;;(equal ttype "enum")
+		    ) 
 		(if (listp ttype)
 		    (setq ttype (car ttype)))
 		(let ((m (assoc ttype func/var-alist)))
@@ -317,9 +334,25 @@ Argument CONTEXT is an object specifying the locally derived context."
 
     (setq accept (delete nil accept))
     
-    
+
+    ;; (message "accpet %s" accept)
+    ;; (message "desired %s" desired-type)
 
     (when desired-type 
+      ;; check wheter we complete an enum type
+      (let ((tag (semantic-analyze-find-tag (semantic-tag-name desired-type)))
+	    members)
+	;;(message "tag %s" tag)
+	(when (semantic-tag-get-attribute tag :typedef)
+	  ;;(message "is typedef")
+	  (setq tag (semantic-tag-get-attribute tag :typedef)))
+	(when (and (equal (semantic-tag-type tag) "enum")
+		   ;;(message "is enum")
+		   (setq members (semantic-tag-type-members tag))
+		   ;;(message "has members %s" members)
+		   )
+	  (setq tags members)))
+
       (let (global local)
 	;; add all functions and variables that have a type from which 
 	;; desired-type is reachable
@@ -349,7 +382,8 @@ Argument CONTEXT is an object specifying the locally derived context."
     ;;   (message "tag %s" tag))
     ;; XXX why start this at all in the first place if 
     ;; completetexttype has no members?
-    (when completetexttype 
+    (when completetexttype
+				       
       (setq tmp tags)
       (setq tags nil)
       (let ((members (semantic-tag-type-members completetexttype))
@@ -359,6 +393,7 @@ Argument CONTEXT is an object specifying the locally derived context."
 	    (if (and member 
 		     (or (semantic-tag-of-class-p member 'variable)
 			 (semantic-tag-of-class-p member 'function))
+;;			 (semantic-tag-of-class-p member 'type)) ;; for enums?
 		     (not (semantic-tag-get-attribute member :constructor-flag))
 		     (not (semantic-tag-get-attribute member :destructor-flag)))
 	    (cond 
