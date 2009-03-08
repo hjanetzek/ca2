@@ -213,7 +213,7 @@ COLOR specifies if color should be used."
 	       (push (cons (semantic-tag-name tag) tag) cands)))
 	  (semanticdb-fast-strip-find-results 
 	   (semanticdb-find-tags-for-completion prefix)))
-    cands))
+    (semantic-unique-tag-table-by-name cands)))
 
 (defvar ca-source-semanticdb-tags
   '((candidates . ca-source-semanticdb-tags-candidates)
@@ -253,7 +253,8 @@ COLOR specifies if color should be used."
   ca-source-semantic-tags-analysis)
 
 (defun ca-source-semantic-tag-summary (candidate)
-  (semantic-format-tag-summarize-with-file candidate nil t))
+  (if (semantic-tag-p candidate)
+      (semantic-format-tag-summarize-with-file candidate nil t)))
 
 (defvar ca-source-semantic-tags
   '((decider . ca-source-semantic-tags-decider)
@@ -276,10 +277,11 @@ COLOR specifies if color should be used."
 (defvar ca-source-semantic-with-dabbrev
   '((candidates . ca-source-dabbrev-candidates)
     (continue   . ca-source-semantic-dabbrev-continue)
+    (info       . ca-source-semantic-tag-summary)
     (limit      . 1)
     (sorted     . t)
     (name       . "dabbrev"))
-  "ca2+ dabbrev source")
+    "ca2+ dabbrev source")
 
 
 (provide 'ca2+source-semantic)
