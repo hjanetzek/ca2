@@ -74,7 +74,7 @@
 
 (require 'cl)
 (require 'thingatpt)
-(require 'fame)
+;;(require 'fame)
 
 (defgroup ca-mode nil
   "Interactive completion framework."
@@ -646,8 +646,8 @@
 (defun ca-source-candidate-info (candidate)
   (let ((func (cdr-safe (assq 'info ca-current-source))))
     (if func
-	(fame-message-nolog "%s" (funcall func (cdr candidate)))
-      (fame-message-nolog "%s" (cdr candidate)))))
+	(message "%s" (funcall func (cdr candidate)))
+      (message "%s" (cdr candidate)))))
 
 
 (defun ca-source-has-common-prefix ()
@@ -741,7 +741,7 @@
 
     (if (null candidates)
 	(ca-abort)
-      (fame-message-nolog "%s candidates" (cdr-safe (assq 'name ca-current-source)))
+      (message "%s candidates" (cdr-safe (assq 'name ca-current-source)))
 
       (setq ca-initial-prefix ca-prefix)
       (setq ca-substring-match-on nil) ;; set this in 'cycle and 'begin?
