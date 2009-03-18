@@ -70,7 +70,10 @@
      ;; functions that have int as type, same within function
      ;; arguments. it also sorts candidates first that have members
      ;; from which the desired type is reachable (when using
-     ;; ca2+semantic).
+     ;; ca2+semantic). Use C-ret (ca-expand-and-continue) to complete
+     ;; a function and insert argument templates for funtions or to
+     ;; complete a variable and insert '.' resp. '->' and continue with
+     ;; completing its members.
      (ca-add-source ca-source-semantic-context
 		    '(c++-mode c-mode))
 
