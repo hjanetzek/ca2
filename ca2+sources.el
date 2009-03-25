@@ -109,11 +109,10 @@
     (limit      . 1)   ;; minimum prefix length to find completion
     (separator  . "/") ;; truncate candidates shown in popup
                        ;; before last position of separator
-    (continue   . t)   ;; find new completions after expansion
+    (continue   . ca-source-filename-candidates) ;; find new completions
     ;;(sorted     . t)
     (name       . "filename"))
   "ca2+ filename source")
-
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; lisp symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

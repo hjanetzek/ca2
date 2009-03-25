@@ -36,12 +36,16 @@
 	       (semantic-find-tags-by-type type (oref scope fullscope))))
 	 localtags)
 
-    ;; filter out local vars that were defined after point
     (dolist (ptag tmp)
-      (if (< (aref (car (reverse ptag)) 1) p)
+      (if (or 
+	   ;; XXX hack to find out whether var is from local buffer/class... just a guess
+	   (not (arrayp (car (reverse ptag)))) 
+	   ;; filter out local vars that were defined after point
+	   (< (aref (car (reverse ptag)) 1) p))
 	  (push ptag localtags)))
 
     (when localtags
+      (setq case-fold-search t)
       (setq ptag (or
 		  (find-if '(lambda (item) 
 			      (string-equal name (semantic-tag-name item))) 
@@ -65,47 +69,57 @@
   "Format the argument list ARGS with FORMATTER.
 FORMATTER is a function used to format a tag.
 COLOR specifies if color should be used."
-  (let ((out nil)
+
+  (let ((template nil)
 	(cnt 1))
     (while args
-      (unless (equal (semantic-tag-name (car args)) "")
-	(push 
-	 (concat "${" (number-to-string cnt) ":"
-		 (or
-		  ;; try find matchin candidate
-		  (and (semantic-tag-p (car args))
-		       (ca-source-semantic-find-local-tag (car args)))
-		  ;; try tag formatter
-		  (and formatter
-		       (semantic-tag-p (car args))
-		       (not (string= (semantic-tag-name (car args)) ""))
-		       (funcall formatter (car args) nil nil))
-		  ;; fallback
-		  (semantic-format-tag-name-from-anything
-		   (car args) nil nil 'variable))
-		 "}")
-	 out))
+      (push 
+       (concat "${" (number-to-string cnt) ":"
+	       (or
+		;; try find matchin candidate
+		(and (semantic-tag-p (car args))
+		     (ca-source-semantic-find-local-tag (car args)))
+		;; try tag formatter
+		(and formatter
+		     (semantic-tag-p (car args))
+		     (not (string= (semantic-tag-name (car args)) ""))
+		     (funcall formatter (car args) nil nil))
+		;; fallback
+		(semantic-format-tag-name-from-anything
+		 (car args) nil nil 'variable))
+	       "}")
+       template)
       (setq cnt (1+ cnt))
       (setq args (cdr args)))
     ;;semantic-function-argument-separator
-    (mapconcat 'identity (nreverse out) ", ")))
+    (mapconcat 'identity (nreverse template) ", ")))
 
 
 (defun ca-source-semantic-continue-function (tag)
   (yas/expand-snippet 
    (point) (point) 
-   (concat 
-    "(" (ca-source-semantic-format-tag-arguments
-	 (semantic-tag-function-arguments tag)
-	 #'semantic-format-tag-prototype) ")"
-	 (unless(looking-at "[[:space:]]*\\()\\|,\\)") ";")))
+   (concat "(" (ca-source-semantic-format-tag-arguments
+		(semantic-tag-function-arguments tag)
+		#'semantic-format-tag-prototype) 
+	   ")"
+	   (unless(looking-at "[[:space:]]*\\()\\|,\\)") ";")))
   ;; finish ca2+
   nil)
+
+(defun ca-source-semantic-continue-operator (tag)
+  
+  (let ((args (semantic-tag-function-arguments tag))
+	desired-type)
+    (when args
+      (setq desired-type (semantic-tag-type (car args)))
+      (message "desired-type %s" desired-type)
+      (ca-semantic-completions nil desired-type))))
 
 
 (defun ca-source-semantic-continue-variable (tag)
   (let* ((ttype (semantic-tag-type tag))
-	 type members)
+	 (refsign "")
+	 type members tmp)
     (while (and ttype (listp ttype) (not (semantic-tag-type-members ttype)))
       ;; find parent of variable
       (setq type (semantic-analyze-find-tag (car ttype)))
@@ -115,9 +129,11 @@ COLOR specifies if color should be used."
 
     (when (and ttype (listp ttype))
       (setq type ttype))
+
+    (unless (equal (semantic-tag-type type) "enum")
+      (setq tmp (semantic-tag-type-members type)))
     
-    (setq members (semantic-tag-type-members type))
-    (when members
+    (when tmp
       ;;sort members with ca2+semantic
       (when (boundp 'semantic-analyze-cache-tags)
 	(let* ((a (or
@@ -128,32 +144,50 @@ COLOR specifies if color should be used."
 	       ;; type that is expected in current context
 	       (desired-type (semantic-analyze-type-constraint a))
 	       ;; members of candidate sorted by reachability
-	       (members (if (not semantic-analyze-cache-tags)
+	       (tmp (if (not semantic-analyze-cache-tags)
 			    (semantic-analyze-possible-completions a)
 			  (ca-semantic-completions type desired-type))))))
-
-      (if (semantic-tag-get-attribute tag :pointer)
-	  (insert "->") (insert "."))
+    
+      ;; remove public/private labels
+      (dolist (member (nrevers tmp))
+	;; (message "type %s" (semantic-tag-type member))
+	(when (and (semantic-tag-type member)
+		   (not (semantic-tag-get-attribute member :constructor-flag))
+		   (not (semantic-tag-get-attribute member :destructor-flag)))
+	  (push member members)))
+  
+      (setq refsign (if (semantic-tag-get-attribute tag :pointer)
+			"->" "."))
       
-      (mapcar '(lambda(tag) (cons (semantic-tag-name tag) tag)) 
+      (mapcar '(lambda(tag) 
+		 (cons (if (semantic-tag-get-attribute tag :operator-flag)
+			   (concat " " (semantic-tag-name tag) " ")
+			 (concat refsign (semantic-tag-name tag))) 
+		  tag))
 	      members))))
 
 (defun ca-source-semantic-continue (candidate)
-  (let ((tag (cdr-safe candidate)))
+  (let ((tag (cdr-safe candidate))
+	(cands nil))
     (when (semantic-tag-p tag)
+      (setq ca-prefix "")
+      (setq ca-initial-prefix "")
+
       (cond 
+       ((semantic-tag-get-attribute tag :operator-flag)
+	(setq cands (ca-source-semantic-continue-operator tag)))
        ((eq (semantic-tag-class tag) 'function)
-	(ca-source-semantic-continue-function tag))
+	(setq cands (ca-source-semantic-continue-function tag)))
        ((eq (semantic-tag-class tag) 'variable)
-	(ca-source-semantic-continue-variable tag))))))
-
-
+	(setq cands (ca-source-semantic-continue-variable tag)))))
+    cands))
 
 ;; semantic context completion
 (defvar ca-source-semantic-context-completions nil)
 (defvar ca-source-semantic-context-cntxt nil)
 
 (defun ca-source-semantic-context-decider-1 ()
+  (unless (looking-at "\\w")
   (let* ((p (point))
 	 (a (semantic-analyze-current-context p))
 	 ;; XXX make this an option 
@@ -166,7 +200,7 @@ COLOR specifies if color should be used."
       (setq ca-source-semantic-context-cntxt a)
       (setq ca-source-semantic-context-completions completions)
       (or (car-safe (bounds-of-thing-at-point 'symbol))
-	  p))))
+	  p)))))
 
 ;; decider works also with function argument templates, inserted 
 ;; text needs to be deleted before semantic-analyze-current-context
@@ -197,6 +231,7 @@ COLOR specifies if color should be used."
     (candidates . ca-source-semantic-context-candidates)
     (info . ca-source-semantic-tag-summary)
     (continue . ca-source-semantic-continue)
+    (separator  . ("." "->"))
     (sorted . t)
     (name . "semantic-context"))
   "ca2+ source for semantic context completion")
@@ -261,6 +296,7 @@ COLOR specifies if color should be used."
     (candidates . ca-source-semantic-tags-candidates)
     (continue . ca-source-semantic-continue)
     (limit . 1)
+    (separator  . '("." "->"))
     (info . ca-source-semantic-tag-summary)
     (name . "semantic-tags"))
   "ca2+ semantic source for tag completion")
@@ -278,6 +314,7 @@ COLOR specifies if color should be used."
   '((candidates . ca-source-dabbrev-candidates)
     (continue   . ca-source-semantic-dabbrev-continue)
     (info       . ca-source-semantic-tag-summary)
+    (separator  . '("." "->"))
     (limit      . 1)
     (sorted     . t)
     (name       . "dabbrev"))
