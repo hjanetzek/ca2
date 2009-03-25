@@ -176,6 +176,7 @@
 (defvar ca-current-candidate nil)
 (defvar ca-description-window nil)
 (defvar ca-highlight-parentheses-mode nil)
+(defvar ca-last-buffer nil)
 
 
 ;; 1. do indent
@@ -261,8 +262,8 @@
   nil " ca2+" ca-mode-map
   (if ca-mode
       (progn
-        (add-hook 'post-command-hook 'ca-post-command t t)
-        (add-hook 'pre-command-hook 'ca-mode-pre-command nil t)
+        (add-hook 'post-command-hook 'ca-post-command t)
+        (add-hook 'pre-command-hook 'ca-mode-pre-command nil)
         (setq ca-common-overlay nil)
         (setq ca-overlay nil)
         (setq ca-hide-overlay nil)
@@ -276,10 +277,11 @@
 	(setq ca-initial-prefix nil)
 	(setq ca-current-candidate nil)
 	(setq ca-description-window nil)
+	(setq ca-last-buffer nil)
 	(setq ca-highlight-parentheses-mode nil))
     (ca-finish)
-    (remove-hook 'post-command-hook 'ca-post-command t)
-    (remove-hook 'pre-command-hook 'ca-mode-pre-command t)))
+    (remove-hook 'post-command-hook 'ca-post-command)
+    (remove-hook 'pre-command-hook 'ca-mode-pre-command)))
 
 
 (defun ca-mode-maybe ()
@@ -319,36 +321,13 @@
 
   (if (null ca-candidates)
       (ca-abort)
-    ;; TODO put all these in one alist. not sure if this is needed but
-    ;; it seems to fix a bug with active completion and then changing
-    ;; buffers, also fixes the bug that overlays wont be deleted when
-    ;; semantic starts idle parsing while menu is active.
-    (set (make-local-variable 'ca-current-candidate)
-    	 ca-current-candidate)
-    (set (make-local-variable 'ca-current-source)
-    	 ca-current-source)
-    (set (make-local-variable 'ca-candidates)
-    	 ca-candidates)
-    (set (make-local-variable 'ca-all-candidates)
-    	 ca-all-candidates)
-    (set (make-local-variable 'ca-prefix)
-    	 ca-prefix)
-    (set (make-local-variable 'ca-initial-prefix)
-    	 ca-initial-prefix)
-    (set (make-local-variable 'ca-selection)
-    	 ca-selection)
-    (set (make-local-variable 'ca-last-command-change)
-    	 ca-last-command-change)
-    (set (make-local-variable 'ca-overlay)
-    	 ca-overlay)
-    (set (make-local-variable 'ca-common-overlay)
-    	 ca-common-overlay)
-    (set (make-local-variable 'ca-complete-word-on)
-    	 ca-complete-word-on)
-    (set (make-local-variable 'ca-substring-match-on)
-    	 ca-substring-match-on)
+
     (set (make-local-variable 'ca-tooltip-overlays)
     	 ca-tooltip-overlays)
+    (set (make-local-variable 'ca-overlay)
+     	 ca-overlay)
+    (set (make-local-variable 'ca-common-overlay)
+     	 ca-common-overlay)
 
     (ca-enable-active-keymap)
     (setq ca-common (try-completion "" ca-candidates))
@@ -484,7 +463,7 @@
 
       (setq ca-candidates (nreverse candidates)))
 
-    ;; match each char in order to prevent exiting 
+    ;; fallback: match each char in order to prevent exiting 
     ;; completion on some common typos
     (unless candidates
       (setq prefix (replace-regexp-in-string 
@@ -506,6 +485,7 @@
 
 
 (defun ca-mode-pre-command ()
+  (setq ca-last-buffer (current-buffer))
   (when ca-candidates
     (unless (memq this-command '(ca-cycle ca-cycle-backwards))
       (ca-hide-tooltip))
@@ -514,6 +494,10 @@
 
 
 (defun ca-post-command ()
+  (when (and ca-candidates 
+  	     (not (eq ca-last-buffer (current-buffer))))
+    (ca-abort))
+
   (when ca-candidates
     (cond
      ((memq this-command ca-continue-commands)
@@ -583,10 +567,11 @@
       (setq ca-selection 0))
   (setq ca-common (try-completion "" ca-candidates))
   (setq ca-current-candidate (nth ca-selection ca-candidates))
-
   (ca-show-overlay)
-  (unless (memq this-command '(ca-cycle ca-cycle-backwards))
+  (unless (memq this-command 
+		'(ca-cycle ca-cycle-backwards))
     (ca-show-overlay-tips)))
+
 
 
 ;; TODO pass candidate?
@@ -663,19 +648,25 @@
      ((fboundp cont)
       (let ((candidates (funcall cont ca-current-candidate)))
 	(when candidates
-	  (setq ca-prefix "")
-	  (setq ca-initial-prefix "")
+	  ;;(setq ca-prefix "")
+	  ;;(setq ca-initial-prefix "")
 	  (setq ca-common "")
 	  (setq ca-selection 0)
 	  (setq ca-candidates candidates)
-	  (setq ca-all-candidates candidates))))
+	  (setq ca-all-candidates candidates)
+	  (setq ca-common (try-completion "" ca-candidates))
+	  (if ca-common (ca-insert-candidate ca-common))
+	  (setq ca-prefix ca-common)))))))
 
-     (cont ;; TODO remove this!
-      (let ((prefix ca-prefix))
-	(ca-get-candidates)
-	;; test if new candidates were found
-	(not (and (= (length ca-candidates) 1)
-		  (string-equal prefix (ca-candidate-string-nth 0)))))))))
+     ;; (cont ;; TODO remove this!
+     ;;  (let ((prefix ca-prefix))
+     ;; 	(ca-get-candidates)
+     ;; 	;; test if new candidates were found
+     ;; 	(when (not (and (= (length ca-candidates) 1)
+     ;; 		  (string-equal prefix (ca-candidate-string-nth 0))))
+     ;; 	  (setq ca-common (try-completion "" ca-candidates))
+     ;; 	  (message "insert >>>  %s" ca-common)
+     ;; 	  (insert ca-common)))))))
 
 
 ;; check wheter the candidate list is made of cons pairs
@@ -945,8 +936,8 @@
 
 ;;; keymap ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defvar ca-original-keymap nil)
-(make-variable-buffer-local 'ca-original-keymap)
+;; (defvar ca-original-keymap nil)
+;; (make-variable-buffer-local 'ca-original-keymap)
 
 
 (defun ca-enable-active-keymap ()
@@ -1120,13 +1111,22 @@
 
 
 (defun ca-tooltip-strip ()
-  (let ((sep (ca-source-separator))
-	(strip 0))
+  (let ((separators (ca-source-separator))
+	(strip 0) 
+	(tmp nil)
+	(separtor nil))
     ;; start at last separator
-    (if (not (and ca-common sep))
+    (if (not (and ca-common separators))
 	strip
-      (setq strip (string-match (concat "\\(" sep "\\)[^" sep "]*$") ca-prefix))
-      (if strip (1+ strip) 0))))
+      (if (not (listp separators))
+	  (setq separators (list separators)))
+      (dolist (separator separators)
+	(setq sep (regexp-quote separator))
+	(setq tmp (string-match (concat "\\(" sep "\\)[^" sep "]*$") ca-common))
+	(when tmp 
+	  (setq strip (+ tmp (length separator)))))
+      (unless strip (setq strip 0)))
+    strip))
 
 
 (defun ca-show-tooltip-at-point (lines &optional highlight)
