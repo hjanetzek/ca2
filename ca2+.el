@@ -189,11 +189,14 @@
     ;; workaround to make the loading order of ca2+ and yasnippet 
     ;; independent without the chance to get infinite recursion.
     (let ((tmp yas/fallback-behavior))
-      (unless (if (not mark-active)
-		  (let ((prev-point (point)))
-		    (indent-for-tab-command)
-		    (not (eql (point) prev-point)))
-		(indent-region (region-beginning) (region-end)) t)
+      (unless (and (not (or 
+			 (eq indent-line-function 'indent-to-left-margin)
+			 (eq indent-line-function 'indent-relative)))
+		   (if (not mark-active)
+		       (let ((prev-point (point)))
+			 (indent-for-tab-command)
+			 (not (eql (point) prev-point)))
+		     (indent-region (region-beginning) (region-end)) t))
 	(unless (and (fboundp 'yas/expand)
 		     (setq yas/fallback-behavior 'return-nil)
 		     (yas/expand))
@@ -450,7 +453,7 @@
 (defun ca-filter-candidates (&optional dont-filter-words)
   (let* ((candidates nil)
 	 (prefix (concat "^" ca-prefix)))
-
+    (setq case-fold-search t)
     (if ca-substring-match-on 
 	;; find substring matches, sort by min positions
 	(let ((parts (split-string prefix ca-substring-match-delimiter))
@@ -486,14 +489,14 @@
     (unless candidates
       (setq prefix (replace-regexp-in-string 
 		    (concat "\\(\\w\\)" ca-substring-match-delimiter "?") 
-		    "\\1.*" prefix))
+		    "\\1.*" ca-prefix))
       (dolist (cand ca-all-candidates)
 	(when (string-match prefix (ca-candidate-string cand))
 	  (push cand candidates)))
 
       (when candidates
 	(setq ca-substring-match-on t)
-	(setq ca-candidates (nreverse candidates))))
+	(setq ca-candidates candidates)))
 
     (ca-source-sort-by-occurrence)
 
