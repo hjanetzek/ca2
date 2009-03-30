@@ -58,9 +58,7 @@
 (eval-after-load 'semantic
   '(progn 
      (require 'semantic-ia)
-     ;; Enable experimental, but faster version.  You need to run
-     ;; ca-semantic-clear-cache to update cached (non local) tags
-     ;; tables atm, i.e. when a new type or function was added.
+     ;; Enable experimental, but (hopefully) faster version.  
      ;; Search results for a desired type are also sorted by
      ;; reachability so vars having the desired type come first, then
      ;; vars that have members from which desired type is reachable.
