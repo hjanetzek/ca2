@@ -80,10 +80,12 @@ COLOR specifies if color should be used."
 		(and (semantic-tag-p (car args))
 		     (ca-source-semantic-find-local-tag (car args)))
 		;; try tag formatter
-		(and formatter
-		     (semantic-tag-p (car args))
-		     (not (string= (semantic-tag-name (car args)) ""))
-		     (funcall formatter (car args) nil nil))
+		(and (semantic-tag-name (car args))
+		     (concat "_" (semantic-tag-name (car args)) "_"))
+		;; (and formatter
+		;;      (semantic-tag-p (car args))
+		;;      (not (string= (semantic-tag-name (car args)) ""))
+		;;      (funcall formatter (car args) nil nil))
 		;; fallback
 		(semantic-format-tag-name-from-anything
 		 (car args) nil nil 'variable))
@@ -277,7 +279,6 @@ COLOR specifies if color should be used."
     (candidates . ca-source-semantic-tags-candidates)
     (continue . ca-source-semantic-continue)
     (limit . 1)
-    (separator  . '("." "->"))
     (info . ca-source-semantic-tag-summary)
     (name . "semantic-tags"))
   "ca2+ semantic source for tag completion")
