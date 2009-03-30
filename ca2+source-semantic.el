@@ -120,6 +120,8 @@ COLOR specifies if color should be used."
   (let* ((ttype (semantic-tag-type tag))
 	 (refsign "")
 	 type members tmp)
+
+
     (while (and ttype (listp ttype) (not (semantic-tag-type-members ttype)))
       ;; find parent of variable
       (setq type (semantic-analyze-find-tag (car ttype)))
@@ -131,40 +133,39 @@ COLOR specifies if color should be used."
       (setq type ttype))
 
     (unless (equal (semantic-tag-type type) "enum")
-      (setq tmp (semantic-tag-type-members type)))
-    
+      ;; XXX hack, somehow semantic looses all but first 
+      ;; member after when completing
+      ;; (semantic-clear-toplevel-cache)
+      ;; (senator-parse)
+      (setq tmp (copy-list (semantic-tag-type-members type))))
+
     (when tmp
       ;;sort members with ca2+semantic
-      (when (boundp 'semantic-analyze-cache-tags)
-	(let* ((a (or
-		   ;; reuse context
-		   ca-source-semantic-context-cntxt
-		   ;; get current context
-		   (semantic-analyze-current-context (point))))
-	       ;; type that is expected in current context
-	       (desired-type (semantic-analyze-type-constraint a))
-	       ;; members of candidate sorted by reachability
-	       (tmp (if (not semantic-analyze-cache-tags)
-			    (semantic-analyze-possible-completions a)
-			  (ca-semantic-completions type desired-type))))))
+      (when (boundp 'ca-semantic-analyze-cache-tags)
+    	(let* ((a (or
+    		   ;; reuse context as desired-type stays the 
+		   ;; same 
+    		   ca-source-semantic-context-cntxt
+    		   ;; get current context
+    		   (semantic-analyze-current-context (point))))
+    	       ;; type that is expected in current context
+    	       (desired-type (semantic-analyze-type-constraint a))
+    	       ;; members of candidate sorted by reachability
+    	       (tmp (if (not ca-semantic-analyze-cache-tags)
+    			    (ca-semantic-analyze-possible-completions a)
+    			  (ca-semantic-completions type desired-type))))))
     
       ;; remove public/private labels
-      (dolist (member (nrevers tmp))
-	;; (message "type %s" (semantic-tag-type member))
-	(when (and (semantic-tag-type member)
+      (dolist (member (nreverse tmp))
+	(when (and (semantic-tag-type member) ;; filter labels: have no type
 		   (not (semantic-tag-get-attribute member :constructor-flag))
 		   (not (semantic-tag-get-attribute member :destructor-flag)))
 	  (push member members)))
   
-      (setq refsign (if (semantic-tag-get-attribute tag :pointer)
-			"->" "."))
-      
-      (mapcar '(lambda(tag) 
-		 (cons (if (semantic-tag-get-attribute tag :operator-flag)
-			   (concat " " (semantic-tag-name tag) " ")
-			 (concat refsign (semantic-tag-name tag))) 
-		  tag))
-	      members))))
+      (setq refsign (if (semantic-tag-get-attribute tag :pointer) "->" "."))
+      (insert refsign)
+
+      (mapcar '(lambda(tag) (cons (semantic-tag-name tag) tag)) members))))
 
 (defun ca-source-semantic-continue (candidate)
   (let ((tag (cdr-safe candidate))
@@ -175,7 +176,8 @@ COLOR specifies if color should be used."
 
       (cond 
        ((semantic-tag-get-attribute tag :operator-flag)
-	(setq cands (ca-source-semantic-continue-operator tag)))
+	;; do not complete operators for now 
+	(setq cands nil)) ;;(ca-source-semantic-continue-operator tag)))
        ((eq (semantic-tag-class tag) 'function)
 	(setq cands (ca-source-semantic-continue-function tag)))
        ((eq (semantic-tag-class tag) 'variable)
@@ -192,7 +194,7 @@ COLOR specifies if color should be used."
 	 (a (semantic-analyze-current-context p))
 	 ;; XXX make this an option 
 	 ;; (syms (if a (semantic-ia-get-completions a p)))
-	 (syms (if a (semantic-analyze-possible-completions a)))
+	 (syms (if a (ca-semantic-analyze-possible-completions a)))
 	 (completions (mapcar 
 		       '(lambda(tag) (cons (semantic-tag-name tag) tag))
 		       syms)))
@@ -231,32 +233,10 @@ COLOR specifies if color should be used."
     (candidates . ca-source-semantic-context-candidates)
     (info . ca-source-semantic-tag-summary)
     (continue . ca-source-semantic-continue)
-    (separator  . ("." "->"))
     (sorted . t)
     (name . "semantic-context"))
   "ca2+ source for semantic context completion")
 
-
-
-;; semanticdb tags source - seems to be fastest
-(defun ca-source-semanticdb-tags-candidates (prefix)
-  (setq ca-source-semantic-context-cntxt nil)
-  (let ((cands nil))
-    (mapc '(lambda (tag)
-	     (unless (or (semantic-tag-get-attribute tag :faux)
-			 (semantic-tag-of-class-p tag 'include))
-	       (push (cons (semantic-tag-name tag) tag) cands)))
-	  (semanticdb-fast-strip-find-results 
-	   (semanticdb-find-tags-for-completion prefix)))
-    (semantic-unique-tag-table-by-name cands)))
-
-(defvar ca-source-semanticdb-tags
-  '((candidates . ca-source-semanticdb-tags-candidates)
-    (continue . ca-source-semantic-continue)
-    (limit . 1)
-    (info . ca-source-semantic-tag-summary)
-    (name . "semanticdb-tags"))
-  "ca2+ semanticdb source for tag completion")
 
 
 
@@ -266,6 +246,7 @@ COLOR specifies if color should be used."
 (defun ca-source-semantic-tags-decider ()
   "Construct candidates from the list inside of tags.
    If candidates were found return the starting point of tag"
+  (setq ca-source-semantic-context-cntxt nil)  
   (let ((list
 	 (condition-case nil
 	     (mapcar (lambda (tag)
@@ -303,22 +284,6 @@ COLOR specifies if color should be used."
 
 
 
-;; find candidates with dabbrev but do semantic source action
-;; if candidate is a tag name. 
-(defun ca-source-semantic-dabbrev-continue (candidate)
-  (let ((cands (ca-source-semanticdb-tags-candidates candidate)))
-    (if cands
-	(ca-source-semantic-continue (car-safe cands)))))
-
-(defvar ca-source-semantic-with-dabbrev
-  '((candidates . ca-source-dabbrev-candidates)
-    (continue   . ca-source-semantic-dabbrev-continue)
-    (info       . ca-source-semantic-tag-summary)
-    (separator  . '("." "->"))
-    (limit      . 1)
-    (sorted     . t)
-    (name       . "dabbrev"))
-    "ca2+ dabbrev source")
 
 
 (provide 'ca2+source-semantic)

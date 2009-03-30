@@ -22,7 +22,7 @@
 
 
 ;;;###autoload
-(define-overloadable-function semantic-analyze-possible-completions (context)
+(defun ca-semantic-analyze-possible-completions (context)
   "Return a list of semantic tags which are possible completions.
 CONTEXT is either a position (such as point), or a precalculated
 context.  Passing in a context is useful if the caller also needs
@@ -46,36 +46,32 @@ in a buffer."
     (let* ((context 
 	    (if (semantic-analyze-context-child-p context)
 	       context
-	    (semantic-analyze-current-context context))
-	    )
+	    (semantic-analyze-current-context context)))
 	   (ans (if (not context)
 		    (error "Nothing to Complete.")
-		  (:override))))
-      ;; If interactive, display them.
-      (when (interactive-p)
-	(with-output-to-temp-buffer "*Possible Completions*"
-	  (semantic-analyze-princ-sequence ans "" (current-buffer)))
-	(shrink-window-if-larger-than-buffer
-	 (get-buffer-window "*Possible Completions*")))
+		  (ca-semantic-analyze-possible-completions-default context))))
       ans)))
 
 (defun ca-semantic-clear-cache ()
   (interactive)
   (message "Clear Semantic Cache")
-  (setq semantic-analyze-cache-tags nil)
-  (setq semantic-analyze-cache-funcs/vars nil)
-  (setq semantic-analyze-cache-mtype-alist nil))
+  (setq ca-semantic-analyze-cache-tags nil)
+  (setq ca-semantic-analyze-cache-funcs/vars nil)
+  (setq ca-semantic-analyze-cache-mtype-alist nil))
 
 (defsubst ca-semantic-strip-type (type)
   (if (listp type)
       (car type)
     type))
 
-(defvar semantic-analyze-cache-funcs/vars nil)
-(defvar semantic-analyze-cache-mtype-alist nil)
-(defvar semantic-analyze-cache-tags nil)
+(defvar ca-semantic-analyze-cache-funcs/vars nil)
+(make-variable-buffer-local 'ca-semantic-analyze-cache-funcs/vars)
+(defvar ca-semantic-analyze-cache-mtype-alist nil)
+(make-variable-buffer-local 'ca-semantic-analyze-cache-mtype-alist)
+(defvar ca-semantic-analyze-cache-tags nil)
+(make-variable-buffer-local 'ca-semantic-analyze-cache-tags)
 
-(defun semantic-analyze-possible-completions-default (context)
+(defun ca-semantic-analyze-possible-completions-default (context)
   "Default method for producing smart completions.
 Argument CONTEXT is an object specifying the locally derived context."
   (let* ((a context)
@@ -93,16 +89,6 @@ Argument CONTEXT is an object specifying the locally derived context."
 	 (func/var-alist nil)
 	 (mtypes-alist)
 	 (use-cache nil))
-
-    ;;(message "semantic-analyze-possible-completions-default")
-    
-    ;; XXX is this the right way?
-    (set (make-local-variable 'semantic-analyze-cache-tags) 
-	 semantic-analyze-cache-tags)
-    (set (make-local-variable 'semantic-analyze-cache-mtype-alist)
-	 semantic-analyze-cache-mtype-alist)
-    (set (make-local-variable 'semantic-analyze-cache-funcs/vars)
-	 semantic-analyze-cache-funcs/vars)
 
     (setq debug nil)
     ;; Calculate what our prefix string is so that we can
@@ -123,7 +109,7 @@ Argument CONTEXT is an object specifying the locally derived context."
     ;; the prefix since the type is never looked up for the last
     ;; item when calculating a sequence.
     (setq completetexttype (car (reverse prefixtypes)))
-    ;; (message "completetexttype %s" completetexttype)
+
     (when (or (not completetexttype)
      	      (not (and (semantic-tag-p completetexttype)
     			(or (semantic-tag-prototype-p completetexttype)
@@ -143,10 +129,10 @@ Argument CONTEXT is an object specifying the locally derived context."
       			  (format "%S" errprefix)))))))
 
     (when can-complete
-      (if semantic-analyze-cache-tags
+      (if ca-semantic-analyze-cache-tags
 	  (progn 
 	    (when debug (message "use cached tags"))
-	    (setq c semantic-analyze-cache-tags))
+	    (setq c ca-semantic-analyze-cache-tags))
 
 	(when debug (message "fetch tags"))
 
@@ -155,13 +141,17 @@ Argument CONTEXT is an object specifying the locally derived context."
 			   (unless (or (semantic-tag-get-attribute tag :faux)
 				       (semantic-tag-of-class-p tag 'include))
 			     (push tag cands)))
-			(semanticdb-fast-strip-find-results 
-			 (semanticdb-find-tags-for-completion "")))
+			(semanticdb-strip-find-results
+			 (semanticdb-find-tags-for-completion "")
+			 'name)
+			;; (semanticdb-fast-strip-find-results 
+			;;  (semanticdb-find-tags-for-completion ""))
+			)
 		  (semantic-unique-tag-table-by-name cands)))
 
 	(unless c
 	  (setq c (semantic-analyze-find-tags-by-prefix "")))
-	(setq semantic-analyze-cache-tags c))
+	(setq ca-semantic-analyze-cache-tags c))
 
       (if completetexttype
 	  ;; set local vars to be members of type to complete
@@ -180,7 +170,7 @@ Argument CONTEXT is an object specifying the locally derived context."
       ;; 					     fullscope))
       ;; 			  c)))
 
-      (if (and (not semantic-analyze-cache-mtype-alist)
+      (if (and (not ca-semantic-analyze-cache-mtype-alist)
 	       (zerop (length completetext)))
 	  (setq c (append c localc))	  
 
@@ -188,8 +178,8 @@ Argument CONTEXT is an object specifying the locally derived context."
 	(when debug
 	  (message "use types cache"))
 
-	(setq mtypes-alist (copy-alist semantic-analyze-cache-mtype-alist))
-	(setq func/var-alist (copy-alist semantic-analyze-cache-funcs/vars))
+	(setq mtypes-alist (copy-alist ca-semantic-analyze-cache-mtype-alist))
+	(setq func/var-alist (copy-alist ca-semantic-analyze-cache-funcs/vars))
 	(setq c localc))
 
       (when debug
@@ -250,8 +240,8 @@ Argument CONTEXT is an object specifying the locally derived context."
 	  (setq origc (cdr origc))))
 
       (unless use-cache
-	(setq semantic-analyze-cache-mtype-alist mtypes-alist)
-	(setq semantic-analyze-cache-funcs/vars func/var-alist))
+	(setq ca-semantic-analyze-cache-mtype-alist mtypes-alist)
+	(setq ca-semantic-analyze-cache-funcs/vars func/var-alist))
   
       (dolist (func/vars func/var-alist)
 	(setcdr func/vars (semantic-unique-tag-table-by-name (cdr func/vars))))
@@ -293,8 +283,8 @@ Argument CONTEXT is an object specifying the locally derived context."
   ;;(message "ca-semantic-completions \n%s\n%s" completetexttype desired-type)
   (ca-semantic-completions-1 completetexttype desired-type 
 			     nil ;;desired-class
-			     semantic-analyze-cache-mtype-alist
-			     semantic-analyze-cache-funcs/vars
+			     ca-semantic-analyze-cache-mtype-alist
+			     ca-semantic-analyze-cache-funcs/vars
 			     nil))
 
 (defun ca-semantic-completions-1 (completetexttype desired-type 
@@ -317,7 +307,7 @@ Argument CONTEXT is an object specifying the locally derived context."
 
     (setq accept (delete nil accept))
     
-    (when (and (not completetexttype) desired-type)
+    (when desired-type
       ;; check wheter we complete an enum type
       (let (tag members global local cur-buffer)
 	(when (listp desired-type)
@@ -355,7 +345,6 @@ Argument CONTEXT is an object specifying the locally derived context."
 	(setq tags (append local cur-buffer tags global))))
     
     (when completetexttype
-      (message "completetexttype" )
       (setq tmp tags)
       (setq tags nil)
       (let ((members (semantic-tag-type-members completetexttype))
@@ -391,41 +380,41 @@ Argument CONTEXT is an object specifying the locally derived context."
 ;;
 ;; Mechanism for lookup up tags by name.
 ;;
-(defun semantic-analyze-find-tags-by-prefix (prefix)
-  ;; @todo - only used in semantic-complete.  Find something better?
-  "Attempt to find a tag with PREFIX.
-is is a wrapper on top of semanticdb, and semantic search functions.
-Almost all searches use the same arguments."
-  (if (and (fboundp 'semanticdb-minor-mode-p)
-           (semanticdb-minor-mode-p))
-      ;; Search the database & concatenate all matches together.
-      ;;(semanticdb-strip-find-results
-       (semanticdb-fast-strip-find-results
-       (semanticdb-find-tags-for-completion prefix))
-    ;;'name)
-    ;; Search just this file because there is no DB available.
-    (semantic-find-tags-for-completion
-     prefix (current-buffer))))
+;; (defun semantic-analyze-find-tags-by-prefix (prefix)
+;;   ;; @todo - only used in semantic-complete.  Find something better?
+;;   "Attempt to find a tag with PREFIX.
+;; is is a wrapper on top of semanticdb, and semantic search functions.
+;; Almost all searches use the same arguments."
+;;   (if (and (fboundp 'semanticdb-minor-mode-p)
+;;            (semanticdb-minor-mode-p))
+;;       ;; Search the database & concatenate all matches together.
+;;       ;;(semanticdb-strip-find-results
+;;        (semanticdb-fast-strip-find-results
+;;        (semanticdb-find-tags-for-completion prefix))
+;;     ;;'name)
+;;     ;; Search just this file because there is no DB available.
+;;     (semantic-find-tags-for-completion
+;;      prefix (current-buffer))))
 
 ;; do not throw errors
-(defun semantic-analyze-dereference-metatype-stack (type scope &optional type-declaration)
-  "Dereference metatypes repeatedly until we hit a real TYPE.
-Uses `semantic-analyze-dereference-metatype'.
-Argument SCOPE is the scope object with additional items in which to search."
-  (let ((lasttype type)
-        (lasttypedeclaration type-declaration)
-  	(nexttype (semantic-analyze-dereference-metatype 
-		   type scope type-declaration))
-  	(idx 0))
-    (while (and nexttype (not (eq (car nexttype) lasttype)) (< idx 10))
-      (setq lasttype (car nexttype) 
-            lasttypedeclaration (cadr nexttype))
-      (setq nexttype (semantic-analyze-dereference-metatype 
-		      lasttype scope lasttypedeclaration))
-      (setq idx (1+ idx))
-      (when (> idx 20) (error "Possible metatype recursion for %S"
-  			      (semantic-tag-name lasttype))))
-    lasttype))
+;; (defun semantic-analyze-dereference-metatype-stack (type scope &optional type-declaration)
+;;   "Dereference metatypes repeatedly until we hit a real TYPE.
+;; Uses `semantic-analyze-dereference-metatype'.
+;; Argument SCOPE is the scope object with additional items in which to search."
+;;   (let ((lasttype type)
+;;         (lasttypedeclaration type-declaration)
+;;   	(nexttype (semantic-analyze-dereference-metatype 
+;; 		   type scope type-declaration))
+;;   	(idx 0))
+;;     (while (and nexttype (not (eq (car nexttype) lasttype)) (< idx 10))
+;;       (setq lasttype (car nexttype) 
+;;             lasttypedeclaration (cadr nexttype))
+;;       (setq nexttype (semantic-analyze-dereference-metatype 
+;; 		      lasttype scope lasttypedeclaration))
+;;       (setq idx (1+ idx))
+;;       (when (> idx 20) (error "Possible metatype recursion for %S"
+;;   			      (semantic-tag-name lasttype))))
+;;     lasttype))
 
 
 (provide 'ca2+semantic)
