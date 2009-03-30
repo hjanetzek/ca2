@@ -6,7 +6,7 @@
 (require 'ca2+ac)
 
 ;; Options what tab should preferably do.
-;; just uncomment the preffered method:
+;; just uncomment the preferred method:
 
 ;; default: tab cycles to next source
 (define-key ca-active-map [tab] 'ca-next-source)
@@ -24,8 +24,16 @@
 ;; (define-key ca-active-map [tab] 'ca-expand-common)
 
 ;; when rebinding tab you'll need another binding for 
-;; cycling sources
+;; cycling sources. e.g.:
 ;; (define-key ca-active-map "\M-h" 'ca-next-source)
+
+;; if the source has an 'continue' action, like e.g. filename-source
+;; to continue completion after inserting a directory name, or
+;; semantic-source to continue with completion of member variables
+;; resp. inserting a function argument template these will be triggered
+;; by expand-and-continue
+(define-key ca-active-map [(C return)] 'ca-expand-and-continue)
+
 
 (ca-clear-completion-sources)
 
