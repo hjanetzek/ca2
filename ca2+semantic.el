@@ -20,6 +20,8 @@
 
 ;; this code is based on semantic-analyze-complete
 
+;; Author: Hannes Janetzek 
+
 
 ;;;###autoload
 (defun ca-semantic-analyze-possible-completions (context)
@@ -52,7 +54,7 @@ in a buffer."
 		  (ca-semantic-analyze-possible-completions-default context))))
       ans)))
 
-(defun ca-semantic-clear-cache ()
+(defun ca-semantic-clear-cache (&optional taglist)
   (interactive)
   (message "Clear Semantic Cache")
   (setq ca-semantic-analyze-cache-tags nil)
@@ -71,6 +73,8 @@ in a buffer."
 (defvar ca-semantic-analyze-cache-tags nil)
 (make-variable-buffer-local 'ca-semantic-analyze-cache-tags)
 
+
+
 (defun ca-semantic-analyze-possible-completions-default (context)
   "Default method for producing smart completions.
 Argument CONTEXT is an object specifying the locally derived context."
@@ -84,13 +88,16 @@ Argument CONTEXT is an object specifying the locally derived context."
 	 (scope (oref a scope))
 	 (localvar (oref scope localvar))
 	 (localc)
-	 (c nil)
 	 (can-complete t)
 	 (func/var-alist nil)
 	 (mtypes-alist)
-	 (use-cache nil))
+	 (c ca-semantic-analyze-cache-tags)
+	 (use-cache (if c t)))
 
-    (setq debug nil)
+    (add-hook 'semantic-after-toplevel-cache-change-hook 
+	      'ca-semantic-clear-cache t t)
+
+    (setq debug t)
     ;; Calculate what our prefix string is so that we can
     ;; find all our matching text.
     (setq completetext (car (reverse prefix)))
@@ -114,7 +121,6 @@ Argument CONTEXT is an object specifying the locally derived context."
      	      (not (and (semantic-tag-p completetexttype)
     			(or (semantic-tag-prototype-p completetexttype)
      			(eq (semantic-tag-class completetexttype) 'type)))))
-
       ;; ;; What should I do here?  I think this is an error condition.
       ;; (setq completetexttype nil)
       ;; ;; If we had something that was a completetexttype but it wasn't
@@ -129,158 +135,124 @@ Argument CONTEXT is an object specifying the locally derived context."
       			  (format "%S" errprefix)))))))
 
     (when can-complete
-      (if ca-semantic-analyze-cache-tags
-	  (progn 
-	    (when debug (message "use cached tags"))
-	    (setq c ca-semantic-analyze-cache-tags))
-
-	(when debug (message "fetch tags"))
-
+      (unless use-cache
+	;; get taglist
 	(setq c (let ((cands nil))
 		  (mapc '(lambda (tag)
 			   (unless (or (semantic-tag-get-attribute tag :faux)
 				       (semantic-tag-of-class-p tag 'include))
 			     (push tag cands)))
-			(semanticdb-strip-find-results
-			 (semanticdb-find-tags-for-completion "")
-			 'name)
-			;; (semanticdb-fast-strip-find-results 
-			;;  (semanticdb-find-tags-for-completion ""))
-			)
+			;; (semanticdb-strip-find-results
+			;;  (semanticdb-find-tags-for-completion "")
+			;;  'name)
+			(semanticdb-fast-strip-find-results 
+			 (semanticdb-find-tags-for-completion "")))
 		  (semantic-unique-tag-table-by-name cands)))
-
-	(unless c
-	  (setq c (semantic-analyze-find-tags-by-prefix "")))
+	;; XXX needed?
+	(unless c (setq c (semantic-analyze-find-tags-by-prefix "")))
+	;; add taglist to cache
 	(setq ca-semantic-analyze-cache-tags c))
 
-      (if completetexttype
-	  ;; set local vars to be members of type to complete
-	  (setq localc (semantic-tag-type-members completetexttype))
-	(setq localc 
-	      (nconc
-	       ;; Argument list and local variables
-	       (semantic-find-tags-for-completion completetext localvar)
-	       ;; The current scope
-	       (semantic-find-tags-for-completion completetext (oref scope fullscope)))))
+      (setq localc 
+	    (if completetexttype 
+		;; set local vars to be members of type to complete
+		(semantic-tag-type-members completetexttype)
+	      ;; Argument list and local variables
+	      (semantic-find-tags-for-completion completetext localvar)))
 
-      ;; (if completetexttype
-      ;; 	  (setq c (append (semantic-analyze-scoped-type-parts 
-      ;; 			   completetexttype (oref 
-      ;; 					     scope 
-      ;; 					     fullscope))
-      ;; 			  c)))
+      
+      (if (or (not use-cache)
+	      (not (or completetexttype desired-type)))
+	  (setq c (append c localc))
 
-      (if (and (not ca-semantic-analyze-cache-mtype-alist)
-	       (zerop (length completetext)))
-	  (setq c (append c localc))	  
-
-	(setq use-cache t)
-	(when debug
-	  (message "use types cache"))
-
-	(setq mtypes-alist (copy-alist ca-semantic-analyze-cache-mtype-alist))
+	(setq mtypes-alist   (copy-alist ca-semantic-analyze-cache-mtype-alist))
 	(setq func/var-alist (copy-alist ca-semantic-analyze-cache-funcs/vars))
 	(setq c localc))
 
-      (when debug
-	(message "test tags %d" (length c))
-	(message "completetext -%s-" completetext)
-	(message "completetexttype -%s-" completetexttype)
-	(message "desired-type -%s-" desired-type))
-
-      (let ((origc c))
-	;; Reset c.
-	(setq c nil)
-	;; Loop over all the found matches, and catagorize them
-	;; as being possible features.
-	(while origc
-	  (cond
-	   ;; Strip operators.. hm why?
-	   ((semantic-tag-get-attribute (car origc) :operator-flag)
-	    nil)
-	   
-	   ;; create cache or update cache with local vars for desired-type
-	   ((or desired-type (not use-cache))
-	    (let* ((tag (car origc))
-		   (members (semantic-tag-type-members tag))
-		   (ttype (ca-semantic-strip-type (semantic-tag-type tag)))
-		   (tname (semantic-tag-name tag))
-		   (class (semantic-tag-class tag))
-		   (typedef (car-safe (semantic-tag-get-attribute tag :typedef)))
-		   (sup (semantic-tag-get-attribute tag :superclasses))
-		   found mtype mtypes)
-	       (if sup
-		;; TODO (dolist (superclass sup) for multiple ingeritance?
-		(let* ((m (assoc sup mtypes-alist)))
-		  (unless m 
-		    (setq m (cons sup nil))
-		    (setq mtypes-alist (cons m mtypes-alist)))
-		  (setcdr m (cons tname (cdr m)))))
-	       
-	       (if members
-		(dolist (member members)
-		  (let ((mtype (semantic-tag-type member)))
-		    (if (listp mtype)
-			(setq mtype (car mtype)))
-		    (let ((m (assoc mtype mtypes-alist)))
-		      (unless m
-			(setq m (cons mtype nil))
-			(setq mtypes-alist (cons m mtypes-alist)))
-		      (setcdr m (cons tname (cdr m)))))))
-	       (cond 
-	       ((or (semantic-tag-of-class-p tag 'variable)
-		    (semantic-tag-of-class-p tag 'function)) 
-		(let ((m (assoc ttype func/var-alist)))
-	          (unless m
-		    (setq m (cons ttype nil))
-		    (setq func/var-alist (cons m func/var-alist)))
-		    (setcdr m (cons tag (cdr m))))))))
-	   (t
-	    (setq c (cons (car origc) c))))
-	  (setq origc (cdr origc))))
-
-      (unless use-cache
-	(setq ca-semantic-analyze-cache-mtype-alist mtypes-alist)
-	(setq ca-semantic-analyze-cache-funcs/vars func/var-alist))
-  
-      (dolist (func/vars func/var-alist)
-	(setcdr func/vars (semantic-unique-tag-table-by-name (cdr func/vars))))
- 
-      ;; XXX check this again
-      (when (or completetexttype 
-		(zerop (length completetext)))
-	(setq c localc))
-
-      (if (or desired-type completetexttype)
-	  (setq c (ca-semantic-completions-1 completetexttype desired-type 
-					     desired-class mtypes-alist
-					     func/var-alist c))
-	;; no desired type or type to complete, sort local tags first
-	(let ((local nil)
-	      (cur-buffer nil)
-	      (tags nil))
-	  (dolist (tag c)
+      (when (or (not use-cache) desired-type completetexttype)
+	(let ((origc c))
+	  ;; Reset c.
+	  ;;(setq c nil)
+	  ;; Loop over all the found matches, and catagorize them
+	  ;; as being possible features.
+	  (while origc
 	    (cond
-	     ;; put local tags first
-	     ((member tag localc)
-	      (setq local (cons tag local)))
-	     ;; one way to figure out if tag is from current buffer. 
-	     ;; just a guess..
-	     ((not (arrayp (car (reverse tag))))
-	      (setq cur-buffer (cons tag cur-buffer)))		 
-	     ;; matches desired type
-	     (t
-	      (setq tags (cons tag tags)))))
-	  (setq c (append local cur-buffer tags))))
+	     ;; Strip operators.. hm why?
+	     ((semantic-tag-get-attribute (car origc) :operator-flag)
+	      nil)
+	   
+	     ;; create cache or update cache with local vars for desired-type
+	     ((or desired-type (not use-cache))
+	      (let* ((tag (car origc))
+		     (members (semantic-tag-type-members tag))
+		     (ttype (ca-semantic-strip-type (semantic-tag-type tag)))
+		     (tname (semantic-tag-name tag))
+		     (class (semantic-tag-class tag))
+		     (typedef (car-safe (semantic-tag-get-attribute tag :typedef)))
+		     (sup (semantic-tag-get-attribute tag :superclasses))
+		     found mtype mtypes)
+		(if sup
+		    ;; TODO (dolist (superclass sup) for multiple ingeritance?
+		    (let* ((m (assoc sup mtypes-alist)))
+		      (unless m 
+			(setq m (cons sup nil))
+			(setq mtypes-alist (cons m mtypes-alist)))
+		      (setcdr m (cons tname (cdr m)))))
+	       
+		(if members
+		    (dolist (member members)
+		      (let ((mtype (semantic-tag-type member)))
+			(if (listp mtype)
+			    (setq mtype (car mtype)))
+			(let ((m (assoc mtype mtypes-alist)))
+			  (unless m
+			    (setq m (cons mtype nil))
+			    (setq mtypes-alist (cons m mtypes-alist)))
+			  (setcdr m (cons tname (cdr m)))))))
+		(cond 
+		 ((or (semantic-tag-of-class-p tag 'variable)
+		      (semantic-tag-of-class-p tag 'function)) 
+		  (let ((m (assoc ttype func/var-alist)))
+		    (unless m
+		      (setq m (cons ttype nil))
+		      (setq func/var-alist (cons m func/var-alist)))
+		    (setcdr m (cons tag (cdr m)))))))))
+	    (setq origc (cdr origc))))
 
-      ;; TODO get some cpp to see what this does
-      ;; (when desired-class
-      ;; 	(setq c (semantic-analyze-tags-of-class-list c desired-class)))
+	(unless use-cache
+	  (setq ca-semantic-analyze-cache-mtype-alist mtypes-alist)
+	  (setq ca-semantic-analyze-cache-funcs/vars func/var-alist))
+
+	(dolist (func/vars func/var-alist)
+	  (setcdr func/vars (semantic-unique-tag-table-by-name (cdr func/vars)))))
+
+  
+      (if (not (or desired-type completetexttype))
+	  ;; no desired type or type to complete, sort local tags first
+	  (let ((local nil)
+		(cur-buffer nil)
+		(tags nil))
+	    (dolist (tag c)
+	      (cond
+	       ;; put local tags first
+	       ((member tag localc)
+		(setq local (cons tag local)))
+	       ;; one way to figure out if tag is from current buffer. 
+	       ;; just a guess..
+	       ((not (arrayp (car (reverse tag))))
+		(setq cur-buffer (cons tag cur-buffer)))		 
+	       ;; matches desired type
+	       (t
+		(setq tags (cons tag tags)))))
+	    (setq c (append local cur-buffer tags)))
+	
+	(setq c (ca-semantic-completions-1 completetexttype desired-type 
+					     desired-class mtypes-alist
+					     func/var-alist localc)))
       c)))
 
 
 (defun ca-semantic-completions (completetexttype desired-type)
-  ;;(message "ca-semantic-completions \n%s\n%s" completetexttype desired-type)
   (ca-semantic-completions-1 completetexttype desired-type 
 			     nil ;;desired-class
 			     ca-semantic-analyze-cache-mtype-alist
@@ -306,7 +278,7 @@ Argument CONTEXT is an object specifying the locally derived context."
 	(setq tmp (cdr tmp))))
 
     (setq accept (delete nil accept))
-    
+
     (when desired-type
       ;; check wheter we complete an enum type
       (let (tag members global local cur-buffer)
@@ -331,15 +303,12 @@ Argument CONTEXT is an object specifying the locally derived context."
 		  (setq local (cons tag local)))
 		 ;; one way to figure out if tag is from current buffer. just a guess..
 		 ((not (arrayp (car (reverse tag))))
-		  ;; (message "buffer %s" tag)
 		  (setq cur-buffer (cons tag cur-buffer)))		 
 		 ;; matches desired type XXX first ????
 		 ((let ((ttype (ca-semantic-strip-type (semantic-tag-type tag))))
 		    (when (equal ttype (ca-semantic-strip-type desired-type))
-		      ;; (message "match %s" tag)
 		      (setq tags (cons tag tags)))))
 		 (t ;; XXX used?
-		  ;; (message "other %s" tag)
 		  (setq global (cons tag global))))))))
 
 	(setq tags (append local cur-buffer tags global))))
@@ -347,7 +316,7 @@ Argument CONTEXT is an object specifying the locally derived context."
     (when completetexttype
       (setq tmp tags)
       (setq tags nil)
-      (let ((members (semantic-tag-type-members completetexttype))
+      (let ((members local-tags)
 	    reachable unreachable)
 	(when members
 	  (dolist (member members)
@@ -360,15 +329,12 @@ Argument CONTEXT is an object specifying the locally derived context."
 	     ;; matches desired type
 	     ((let ((ttype (ca-semantic-strip-type (semantic-tag-type member))))
 	       (when (equal ttype (car desired-type))
-		 ;; (message "desired %s" member)
 		 (setq tags (cons member tags)))))
 	     ;; desired type is reachable
 	     ((memql member tmp)
-	      ;; (message "reach %s" member)
 	      (setq reachable (cons member reachable)))
 	     ;; desired type is not reachable
 	     (t
-	      ;; (message "unreach %s" member)
 	      (setq unreachable (cons member unreachable))))))
 
 	  (setq tags (append tags reachable unreachable)))))
