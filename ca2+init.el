@@ -65,8 +65,8 @@
      (require 'ca2+semantic)
 
      ;; complete prefix with tags found in semantics tags table
-     (ca-add-source ca-source-semantic-tags
-     		    '(c++-mode c-mode))
+     ;; (ca-add-source ca-source-semantic-tags
+     ;; 		    '(c++-mode c-mode))
      
      ;;;; this source tries to figure out from context what preferred
      ;; candidates are. e.g: for 'int bla =' it finds vars and
