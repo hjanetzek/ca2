@@ -193,6 +193,8 @@
 (make-variable-buffer-local 'ca-highlight-parentheses-mode)
 (defvar ca-last-buffer nil)
 (make-variable-buffer-local 'ca-last-buffer)
+(defvar ca-info-show-timer nil)
+(make-variable-buffer-local 'ca-info-show-timer)
 
 (defvar ca-source-alist nil)
 (defvar ca-substring-match-delimiter " ")
@@ -381,6 +383,8 @@
   (ca-hide-overlay)
   (ca-hide-tooltip)
   (ca-kill-description-buffer)
+  (when (timerp ca-info-show-timer) 
+    (cancel-timer ca-info-show-timer))
   ;; workarounds
   (when (looking-at " $") (delete-char 1))
   (when ca-highlight-parentheses-mode
@@ -389,7 +393,6 @@
   (let ((source ca-current-source))
     (setq ca-current-source nil)
     (ca-source-action source ca-current-candidate)))
-
 
 (defun ca-abort ()
   (interactive)
@@ -404,7 +407,8 @@
 			      (- (length ca-prefix)  end)))))))
 
   (setq ca-current-candidate nil)
-  (setq ca-current-source nil)
+  ;; run action with nil candidate for cleanup
+  ;;(setq ca-current-source nil)
   (ca-finish))
 
 
@@ -524,8 +528,8 @@
 (defun ca-post-command ()
   (when (and ca-candidates 
   	     (not (eq ca-last-buffer (current-buffer))))
-    (ca-abort))
-
+	(ca-abort))
+  
   (when ca-candidates
     (cond
      ((memq this-command ca-continue-commands)
@@ -601,7 +605,6 @@
     (ca-show-overlay-tips)))
 
 
-
 ;; TODO pass candidate?
 (defun ca-source-action (source candidate)
   (let ((action (cdr-safe (assq 'action source))))
@@ -659,11 +662,18 @@
   (cdr-safe (assq 'separator ca-current-source)))
 
 
+(defun ca-info-timer-func ()
+  (when (cdr-safe ca-current-candidate)
+    (let ((func (cdr-safe (assq 'info ca-current-source))))
+      (if func
+	  (message "%s" (funcall func (cdr ca-current-candidate)))
+	(message "%s" (cdr ca-current-candidate))))))
+
 (defun ca-source-candidate-info (candidate)
-  (let ((func (cdr-safe (assq 'info ca-current-source))))
-    (if func
-	(message "%s" (funcall func (cdr candidate)))
-      (message "%s" (cdr candidate)))))
+  (when (timerp ca-info-show-timer) 
+  	(cancel-timer ca-info-show-timer))
+  (setq ca-info-show-timer 
+	(run-with-timer 0.2 nil 'ca-info-timer-func)))
 
 
 (defun ca-source-has-common-prefix ()
@@ -674,17 +684,15 @@
   (let ((cont (cdr-safe (assq 'continue ca-current-source))))
     (cond
      ((fboundp cont)
+      (ca-source-action ca-current-source ca-current-candidate)
       (let ((candidates (funcall cont ca-current-candidate)))
 	(when candidates
-	  ;;(setq ca-prefix "")
-	  ;;(setq ca-initial-prefix "")
+
 	  (setq ca-common "")
 	  (setq ca-selection 0)
 	  (setq ca-candidates candidates)
 	  (setq ca-all-candidates candidates)
 	  (setq ca-common (try-completion "" ca-candidates))
-	  ;; (if ca-common (ca-insert-candidate ca-common))
-	  ;; (setq ca-prefix ca-common)
 	  ))))))
 
      ;; (cont ;; TODO remove this!
@@ -878,8 +886,9 @@
 
       ;; show info for candidate
       (let ((cand (nth ca-selection ca-candidates)))
-	(when (consp cand)
-	  (ca-source-candidate-info cand))))))
+      	(when (consp cand)
+      	  (ca-source-candidate-info cand)))
+      )))
 
 
 (defun ca-cycle-backwards (&optional n)
@@ -946,7 +955,6 @@
       (when (called-interactively-p)
 	(error "No candidates found")))))
 
-
 (defun ca-describe-candidate ()
   (interactive)
   (unless ca-mode (error "ca-mode not enabled"))
@@ -962,30 +970,27 @@
 
 
 
-
 ;;; keymap ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; (defvar ca-original-keymap nil)
 ;; (make-variable-buffer-local 'ca-original-keymap)
 
-
 (defun ca-enable-active-keymap ()
   (setcdr (assoc 'ca-mode minor-mode-map-alist)
           ca-active-map))
-
 
 (defun ca-disable-active-keymap ()
   (setcdr (assoc 'ca-mode minor-mode-map-alist)
           ca-mode-map))
 
-
 ;;; overlays ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmacro ca-without-undo (&rest body)
   `(let ((buffer-undo-list nil)
-         (inhibit-modification-hooks t))
+	 (inhibit-read-only t)
+         (inhibit-modification-hooks t)
+	 (inhibit-point-motion-hooks t))
      ,@body))
-
 
 (defun ca-put-overlay (beg end &optional prop value prop2 value2 prop3 value3)
   (let ((ov (make-overlay beg end)))
@@ -1000,7 +1005,6 @@
       (overlay-put ov 'face 'ca-common-face))
     ov))
 
-
 ;; TODO there must be a library function for this ....
 (defun ca-sublist (list start length)
   (dotimes (i start)
@@ -1012,7 +1016,6 @@
         (setq tail (setcdr tail (cons (pop list) nil))))
       new-list)))
 
-
 (defsubst ca-get-page-size ()
   (let* ((max-lines (- (window-height) 4))
 	 (max-lines (if (< max-lines 0) 1 max-lines))
@@ -1022,7 +1025,6 @@
 (defsubst ca-get-selection-offset ()
   (let ((page-size (ca-get-page-size)))
     (* (/ ca-selection page-size) page-size)))
-	
 
 (defsubst ca-pick-candidates ()
   (ca-sublist ca-candidates 
@@ -1055,12 +1057,10 @@
 			       (+ (- beg prefix-length) common-length)
 			       'face 'ca-common-face)))))))
 
-
 (defun ca-show-overlay-tips ()
   (when (cdr ca-candidates)
     ;; (when (eq ca-display-style 'tooltip)
     (ca-show-list-tooltip)))
-
 
 (defun ca-hide-overlay ()
   (ca-without-undo
@@ -1080,6 +1080,7 @@
 ;;; pseudo tooltip ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun ca-show-list-tooltip (&optional point)
+  (ca-without-undo
   (let* ((candidates (ca-pick-candidates))
 	 (cnt (length candidates))
 	 (to-bottom (- (window-height)
@@ -1089,7 +1090,7 @@
 
     (ca-show-tooltip-at-point candidates
 			      (- ca-selection 
-				 (ca-get-selection-offset)))))
+				 (ca-get-selection-offset))))))
 
 
 (defun ca-hide-tooltip ()
@@ -1099,7 +1100,6 @@
       (delete-region (overlay-start ov) (overlay-end ov)))
     (delete-overlay ov))
   (setq ca-tooltip-overlays nil))
-
 
 (defun ca-show-tooltip-line (start replacement)
   ;; start might be in the middle of a tab, which means we need to
@@ -1138,7 +1138,6 @@
 			  'after-string string)
 	  ca-tooltip-overlays)))
 
-
 (defun ca-tooltip-strip ()
   (let ((separators (ca-source-separator))
 	(strip 0) 
@@ -1156,7 +1155,6 @@
 	  (setq strip (+ tmp (length separator)))))
       (unless strip (setq strip 0)))
     strip))
-
 
 (defun ca-show-tooltip-at-point (lines &optional highlight)
   (ca-hide-tooltip)
