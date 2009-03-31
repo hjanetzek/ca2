@@ -245,19 +245,18 @@ Argument CONTEXT is an object specifying the locally derived context."
 	       (t
 		(setq tags (cons tag tags)))))
 	    (setq c (append local cur-buffer tags)))
-	
 	(setq c (ca-semantic-completions-1 completetexttype desired-type 
 					     desired-class mtypes-alist
 					     func/var-alist localc)))
       c)))
 
 
-(defun ca-semantic-completions (completetexttype desired-type)
+(defun ca-semantic-completions (completetexttype desired-type &optional local-tags)
   (ca-semantic-completions-1 completetexttype desired-type 
 			     nil ;;desired-class
 			     ca-semantic-analyze-cache-mtype-alist
 			     ca-semantic-analyze-cache-funcs/vars
-			     nil))
+			     local-tags))
 
 (defun ca-semantic-completions-1 (completetexttype desired-type 
 				  desired-class mtypes-alist
@@ -265,8 +264,9 @@ Argument CONTEXT is an object specifying the locally derived context."
   (let* ((accept (list (ca-semantic-strip-type desired-type)))
 	 (tmp accept)
 	 (tags nil))
-    (when (or (and desired-type (listp desired-type))
-	      completetexttype)
+    (when desired-type
+    ;; (when (or (and desired-type (listp desired-type))
+    ;; 	      completetexttype) ;;XXX completeext????
       (while tmp
 	(let* ((mtype (car tmp))
 	       (bla (assoc mtype mtypes-alist)))
