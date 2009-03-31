@@ -59,7 +59,8 @@
 		  (car localtags)))
       (when ptag
 	(cond ((and (semantic-tag-get-attribute tag :pointer)
-		    (not (semantic-tag-get-attribute ptag :pointer)))
+		    (not (semantic-tag-get-attribute ptag :pointer))
+		    (not (semantic-tag-get-attribute ptag :dereference)))
 	       (concat "&" (semantic-tag-name ptag)))
 	      ;; ((and (semantic-tag-get-attribute ptag :pointer)
 	      ;; 	    (not (semantic-tag-get-attribute tag :pointer)))
@@ -161,7 +162,8 @@ COLOR specifies if color should be used."
 			    (semantic-tag-get-attribute tag :destructor-flag)))
 		     members))
 
-      (ca-without-undo (insert "<>"))
+      (insert (if (semantic-tag-get-attribute tag :pointer) "->" "."))
+
       (mapcar '(lambda(tag) (cons (semantic-tag-name tag) tag)) members))))
 
 (defun ca-source-semantic-continue (candidate)
@@ -225,22 +227,21 @@ COLOR specifies if color should be used."
 
 (defun ca-source-semantic-action (candidate)
   (if (not candidate)
-      (when (looking-back "<>") 
+      (progn
+	(when (looking-back "\.") 
+	  (delete-backward-char 1))
+	(when (looking-back "->") 
+	  (delete-backward-char 2)))
+
+    (when (and (semantic-tag-p (cdr-safe candidate))
+	       (semantic-tag-get-attribute (cdr candidate) :operator-flag))
+      (delete-backward-char (length (car candidate)))
+      (when (looking-back "\.") 
+	(delete-backward-char 1))
+      (when (looking-back "->") 
 	(delete-backward-char 2))
-    (delete-backward-char (length (car candidate)))
-    (let ((tag (cdr-safe candidate))
-	  (cands nil))
-      (when (semantic-tag-p tag)
-	(when (looking-back "<>") 
-	  (delete-backward-char 2)
-	  (cond 
-	   ((semantic-tag-get-attribute tag :operator-flag)
-	    (insert " ")) 
-	   ((eq (semantic-tag-class tag) 'function)
-	    (insert "->"))
-	   ((eq (semantic-tag-class tag) 'variable)
-	    (insert (if (semantic-tag-get-attribute tag :pointer) "->" ".")))))
-	(insert (car candidate))))))
+      (insert " ")
+      (insert (car candidate)))))
 
 (defvar ca-source-semantic-context
   '((decider . ca-source-semantic-context-decider)
@@ -283,19 +284,20 @@ COLOR specifies if color should be used."
 
 (defun ca-source-semantic-tag-summary (tag)
   (if (semantic-tag-p tag)
-      (if t 
+      (if t
 	  (ca-source-semantic-summary-and-doc tag)
 	(semantic-format-tag-summarize-with-file tag nil t))))
 
 ;; copied from company-semantic.el
 (defun ca-source-semantic-summary-and-doc (tag)
-  (let ((doc (semantic-documentation-for-tag tag))
-        (summary (semantic-format-tag-summarize-with-file tag nil t)))
+  (let* (;;(name (semantic-tag-name tag))
+	 ;;(tag (semantic-analyze-find-tag name))
+	 (doc (ignore-errors (semantic-documentation-for-tag tag)))
+	 (summary (semantic-format-tag-summarize-with-file tag nil t)))
     (and (stringp doc)
          (string-match "\n*\\(.*\\)$" doc)
          (setq doc (match-string 1 doc)))
-    ;;(concat (funcall semantic-idle-summary-function tag nil t)
-    (concat (semantic-format-tag-summarize-with-file tag nil t)
+    (concat summary
             (when doc
 	      (if (< (+ (length doc) (length summary) 4) (frame-width))
 		  " -- "
