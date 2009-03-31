@@ -157,10 +157,14 @@ Argument CONTEXT is an object specifying the locally derived context."
 	    (if completetexttype 
 		;; set local vars to be members of type to complete
 		(semantic-tag-type-members completetexttype)
-	      ;; Argument list and local variables
-	      (semantic-find-tags-for-completion completetext localvar)))
 
-      
+	      (nconc
+	       ;; Argument list and local variables
+	       (semantic-find-tags-for-completion completetext localvar)
+	       ;; The current scope (e.g. class members)
+	       (semantic-find-tags-for-completion completetext 
+						  (oref scope fullscope)))))
+	    
       (if (or (not use-cache)
 	      (not (or completetexttype desired-type)))
 	  (setq c (append c localc))
