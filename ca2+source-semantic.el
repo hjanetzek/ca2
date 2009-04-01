@@ -228,7 +228,7 @@ COLOR specifies if color should be used."
 (defun ca-source-semantic-action (candidate)
   (if (not candidate)
       (progn
-	(when (looking-back "\.") 
+	(when (looking-back "\\.") 
 	  (delete-backward-char 1))
 	(when (looking-back "->") 
 	  (delete-backward-char 2)))
@@ -236,7 +236,7 @@ COLOR specifies if color should be used."
     (when (and (semantic-tag-p (cdr-safe candidate))
 	       (semantic-tag-get-attribute (cdr candidate) :operator-flag))
       (delete-backward-char (length (car candidate)))
-      (when (looking-back "\.") 
+      (when (looking-back "\\.") 
 	(delete-backward-char 1))
       (when (looking-back "->") 
 	(delete-backward-char 2))
