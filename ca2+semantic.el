@@ -97,7 +97,6 @@ Argument CONTEXT is an object specifying the locally derived context."
     (add-hook 'semantic-after-toplevel-cache-change-hook 
 	      'ca-semantic-clear-cache t t)
 
-    (setq debug t)
     ;; Calculate what our prefix string is so that we can
     ;; find all our matching text.
     (setq completetext (car (reverse prefix)))
@@ -162,8 +161,8 @@ Argument CONTEXT is an object specifying the locally derived context."
 	       ;; Argument list and local variables
 	       (semantic-find-tags-for-completion completetext localvar)
 	       ;; The current scope (e.g. class members)
-	       (semantic-find-tags-for-completion completetext 
-						  (oref scope fullscope)))))
+	       (semantic-find-tags-for-completion completetext ;; XXX fullscope?
+	      					  (oref scope fullscope))))) 
 	    
       (if (or (not use-cache)
 	      (not (or completetexttype desired-type)))
@@ -175,8 +174,6 @@ Argument CONTEXT is an object specifying the locally derived context."
 
       (when (or (not use-cache) desired-type completetexttype)
 	(let ((origc c))
-	  ;; Reset c.
-	  ;;(setq c nil)
 	  ;; Loop over all the found matches, and catagorize them
 	  ;; as being possible features.
 	  (while origc
@@ -201,18 +198,20 @@ Argument CONTEXT is an object specifying the locally derived context."
 		      (unless m 
 			(setq m (cons sup nil))
 			(setq mtypes-alist (cons m mtypes-alist)))
-		      (setcdr m (cons tname (cdr m)))))
+		      (unless (member tname (cdr m))
+			(setcdr m (cons tname (cdr m))))))
 	       
 		(if members
 		    (dolist (member members)
 		      (let ((mtype (semantic-tag-type member)))
-			(if (listp mtype)
-			    (setq mtype (car mtype)))
-			(let ((m (assoc mtype mtypes-alist)))
-			  (unless m
-			    (setq m (cons mtype nil))
-			    (setq mtypes-alist (cons m mtypes-alist)))
-			  (setcdr m (cons tname (cdr m)))))))
+			(when mtype
+			  (setq mtype (ca-semantic-strip-type mtype))
+			  (let ((m (assoc mtype mtypes-alist)))
+			    (unless m
+			      (setq m (cons mtype nil))
+			      (setq mtypes-alist (cons m mtypes-alist)))
+			    (unless (member tname (cdr m))
+			      (setcdr m (cons tname (cdr m)))))))))
 		(cond 
 		 ((or (semantic-tag-of-class-p tag 'variable)
 		      (semantic-tag-of-class-p tag 'function)) 
@@ -220,7 +219,8 @@ Argument CONTEXT is an object specifying the locally derived context."
 		    (unless m
 		      (setq m (cons ttype nil))
 		      (setq func/var-alist (cons m func/var-alist)))
-		    (setcdr m (cons tag (cdr m)))))))))
+		    ;;(unless (member tag (cdr m))
+		      (setcdr m (cons tag (cdr m)))))))));;)
 	    (setq origc (cdr origc))))
 
 	(unless use-cache
@@ -240,10 +240,12 @@ Argument CONTEXT is an object specifying the locally derived context."
 	      (cond
 	       ;; put local tags first
 	       ((member tag localc)
+		;; (message "local: %s" tag)
 		(setq local (cons tag local)))
 	       ;; one way to figure out if tag is from current buffer. 
 	       ;; just a guess..
 	       ((not (arrayp (car (reverse tag))))
+		;;(message "in buf %s" tag)
 		(setq cur-buffer (cons tag cur-buffer)))		 
 	       ;; matches desired type
 	       (t
@@ -283,6 +285,11 @@ Argument CONTEXT is an object specifying the locally derived context."
 
     (setq accept (delete nil accept))
 
+    ;; (message "accept %s" accept)
+    ;; (message "desired %s" desired-type )
+    ;; (dolist (pair mtypes-alist)
+    ;;   (message ":: %s" pair))
+
     (when desired-type
       ;; check wheter we complete an enum type
       (let (tag members global local cur-buffer)
@@ -303,7 +310,6 @@ Argument CONTEXT is an object specifying the locally derived context."
 		(cond 
 		 ;; put local tags first
 		 ((member tag local-tags)
-		  ;; (message "local %s" tag)
 		  (setq local (cons tag local)))
 		 ;; one way to figure out if tag is from current buffer. just a guess..
 		 ((not (arrayp (car (reverse tag))))
