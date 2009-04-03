@@ -360,6 +360,9 @@
       (ca-abort)
 
     (ca-enable-active-keymap)
+    (add-hook 'post-command-hook 'ca-post-command t)
+    (add-hook 'pre-command-hook 'ca-mode-pre-command nil)
+
     (setq ca-common (try-completion "" ca-candidates))
     (setq ca-last-command-change (point))
     (setq ca-selection 0)
@@ -497,17 +500,18 @@
 
     ;; fallback: match each char in order to prevent exiting 
     ;; completion on some common typos
-    (unless candidates
-      (setq prefix (replace-regexp-in-string 
-		    (concat "\\(\\w\\)" ca-substring-match-delimiter "?") 
-		    "\\1.*" ca-prefix))
-      (dolist (cand ca-all-candidates)
-	(when (string-match prefix (ca-candidate-string cand))
-	  (push cand candidates)))
 
-      (when candidates
-	(setq ca-substring-match-on t)
-	(setq ca-candidates candidates)))
+    ;; (unless candidates
+    ;;   (setq prefix (replace-regexp-in-string 
+    ;; 		    (concat "\\(\\w\\)" ca-substring-match-delimiter "?") 
+    ;; 		    "\\1.*" ca-prefix))
+    ;;   (dolist (cand ca-all-candidates)
+    ;; 	(when (string-match prefix (ca-candidate-string cand))
+    ;; 	  (push cand candidates)))
+
+    ;;   (when candidates
+    ;; 	(setq ca-substring-match-on t)
+    ;; 	(setq ca-candidates candidates)))
 
     (ca-source-sort-by-occurrence)
 
@@ -526,12 +530,11 @@
 
 
 (defun ca-post-command ()
-  (when (and ca-candidates 
-  	     (not (eq ca-last-buffer (current-buffer))))
-	(ca-abort))
-  
   (when ca-candidates
     (cond
+     ((not (eq ca-last-buffer (current-buffer)))
+      (ca-abort))
+
      ((memq this-command ca-continue-commands)
       (ca-continue))
 
@@ -670,10 +673,11 @@
 	(message "%s" (cdr ca-current-candidate))))))
 
 (defun ca-source-candidate-info (candidate)
+  ;; (ca-info-timer-func))
   (when (timerp ca-info-show-timer) 
   	(cancel-timer ca-info-show-timer))
   (setq ca-info-show-timer 
-	(run-with-timer 0.2 nil 'ca-info-timer-func)))
+  	(run-with-timer 0.2 nil 'ca-info-timer-func)))
 
 
 (defun ca-source-has-common-prefix ()
