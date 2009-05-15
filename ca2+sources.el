@@ -214,4 +214,39 @@
   "ca2+ yasnippet source")
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; python rope ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun ca-source-rope-candidates (prefix)
+  (let (cands)
+    (dolist (cand (rope-completions))
+      (setq cands (cons (format "%s%s" prefix cand) cands)))
+    cands))
+
+(defun ca-source-rope-decider ()
+  (let ((symbol (car-safe (bounds-of-thing-at-point 'symbol))))
+    (if (null symbol)
+        (when (looking-back "\.")
+	  (point))
+      symbol)))
+
+(defun ca-source-rope-continue (candidate)
+  (setq ca-prefix "")
+  (setq ca-initial-prefix "")
+  (insert ".")
+  (let ((cands (ca-source-rope-candidates "")))
+    (or (nreverse cands)
+	(delete-char -1))))
+
+(defvar ca-source-python-rope
+  '((candidates . ca-source-rope-candidates)
+    (decider    . ca-source-rope-decider)
+    (continue   . ca-source-rope-continue)
+    (filter     . t)
+    (sorted     . nil)
+    (sort-by-occurrence . t)
+    (common-prefix . t)
+    (name       . "python"))
+  "ca2+ rope powered python source")
+
+
 (provide 'ca2+sources)

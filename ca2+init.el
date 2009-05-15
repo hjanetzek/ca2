@@ -96,6 +96,10 @@
      ;; (add-hook 'c-mode-common-hook 'ca-semantic-c-hook)
      ))
 
+(eval-after-load "pymacs"
+  ;; TODO figure out when rope is loaded
+  (ca-add-source ca-source-python-rope
+		 '(python-mode)))
 
 ;;;; GENERAL sources are tried after mode specific ones 
 (ca-add-source ca-source-filename 'otherwise)
