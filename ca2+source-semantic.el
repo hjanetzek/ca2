@@ -76,29 +76,31 @@ COLOR specifies if color should be used."
 
   (let ((template nil)
 	(cnt 1))
-    (while args
-      (push 
-       (concat "${" (number-to-string cnt) ":"
-	       (or
-		;; try find matchin candidate
-		(and (semantic-tag-p (car args))
-		     (ca-source-semantic-find-local-tag (car args)))
-		;; try tag formatter
-		(and (semantic-tag-name (car args))
-		     (upcase (semantic-tag-name (car args))))
-		;; (and formatter
-		;;      (semantic-tag-p (car args))
-		;;      (not (string= (semantic-tag-name (car args)) ""))
-		;;      (funcall formatter (car args) nil nil))
-		;; fallback
-		(semantic-format-tag-name-from-anything
-		 (car args) nil nil 'variable))
-	       "}")
-       template)
-      (setq cnt (1+ cnt))
-      (setq args (cdr args)))
-    ;;semantic-function-argument-separator
-    (mapconcat 'identity (nreverse template) ", ")))
+    (when (and args (not (equal (semantic-tag-type (car args)) "void")))
+      ;;(message "tag %s" (car args))
+      (while args
+	(push 
+	 (concat "${" (number-to-string cnt) ":"
+		 (or
+		  ;; try find matchin candidate
+		  (and (semantic-tag-p (car args))
+		       (ca-source-semantic-find-local-tag (car args)))
+		  ;; try tag formatter
+		  (and (semantic-tag-name (car args))
+		       (upcase (semantic-tag-name (car args))))
+		  ;; (and formatter
+		  ;;      (semantic-tag-p (car args))
+		  ;;      (not (string= (semantic-tag-name (car args)) ""))
+		  ;;      (funcall formatter (car args) nil nil))
+		  ;; fallback
+		  (semantic-format-tag-name-from-anything
+		   (car args) nil nil 'variable))
+		 "}")
+	 template)
+	(setq cnt (1+ cnt))
+	(setq args (cdr args)))
+      ;;semantic-function-argument-separator
+      (mapconcat 'identity (nreverse template) ", "))))
 
 
 (defun ca-source-semantic-continue-function (tag)
