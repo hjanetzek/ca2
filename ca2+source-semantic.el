@@ -105,7 +105,6 @@ COLOR specifies if color should be used."
 
 (defun ca-source-semantic-continue-function (tag)
   (yas/expand-snippet 
-   (point) (point) 
    (concat "(" (ca-source-semantic-format-tag-arguments
 		(semantic-tag-function-arguments tag)
 		#'semantic-format-tag-prototype) 
