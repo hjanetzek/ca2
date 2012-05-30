@@ -1,15 +1,7 @@
-;;;;;;;;;;;;;;;;;;;;;;;;;;;; CompleteAnything^2+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;; fork of company-mode.el, with code from auto-complete.el and completion
-;; methods found on emacswiki
-;;
-;; plesase send Bug reports and suggestions to 'hannes dot janetzek at gmail dot com'
+;;; ca2+.el --- an improved fork of `company-mode'
 
 ;; This file is NOT part of GNU Emacs
-;;
-;;
-;;  License
-;;
+
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation; either version 3, or (at your option)
@@ -25,7 +17,11 @@
 ;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth
 ;; Floor, Boston, MA 02110-1301, USA.
 
+;;; Commentary:
 
+;; fork of company-mode.el, with code from auto-complete.el and completion
+;; methods found on emacswiki
+;;
 ;; either enable ca-mode per buffer via (ca-mode 1) or use (global-ca-mode 1)
 ;; to enable it in all buffer that match 'ca-modes'
 ;;
@@ -71,6 +67,9 @@
 ;; - expand-common does weird thing when word-filter is on
 ;; - point jump around when cycling (remove current workaround)
 ;;
+;; Please send Bug reports and suggestions to 'hannes dot janetzek at gmail dot com'
+
+;;; Code:
 
 (require 'cl)
 (require 'thingatpt)
