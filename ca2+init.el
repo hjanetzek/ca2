@@ -55,9 +55,10 @@
 
 
 ;;;; SEMANTIC source:
-(eval-after-load 'semantic
-  '(progn 
-     (require 'semantic-ia)
+;;(eval-after-load 'semantic
+;; '(progn 
+     ;;(require 'semantic-ia)
+
      ;; Enable experimental, but (hopefully) faster version.  
      ;; Search results for a desired type are also sorted by
      ;; reachability so vars having the desired type come first, then
@@ -77,8 +78,8 @@
      ;; a function and insert argument templates for funtions or to
      ;; complete a variable and insert '.' resp. '->' and continue with
      ;; completing its members.
-     (ca-add-source ca-source-semantic-context
-		    '(c++-mode c-mode))
+ (ca-add-source ca-source-semantic-context
+ 		    '(c++-mode c-mode java-mode jde-mode))
      
      ;;;; OMNICOMPLETION:
      ;; uncomment things below for omnicompletion. though you can just
@@ -94,7 +95,7 @@
      ;;   (local-set-key "." 'ca-semantic-completion)
      ;;   (local-set-key ">" 'ca-semantic-completion))
      ;; (add-hook 'c-mode-common-hook 'ca-semantic-c-hook)
-     ))
+ ;;   ))
 
 (eval-after-load "pymacs"
   ;; TODO figure out when rope is loaded
@@ -112,12 +113,12 @@
 ;; it seems that this needs to be set before '(require 'yasnippet)'
 ;; change this to your liking, but tab would interfere with 
 ;; completion within yas templates.
-(defvar yas/next-field-key (kbd "C-f"))
-(defvar yas/prev-field-key (kbd "C-b"))
+;; (defvar yas/next-field-key (kbd "C-f"))
+;; (defvar yas/prev-field-key (kbd "C-b"))
 
-(eval-after-load 'yasnippet
-  '(progn
-     (ca-add-source ca-source-yasnippet 'otherwise)))
+;; (eval-after-load 'yasnippet
+;;   '(progn
+;;      (ca-add-source ca-source-yasnippet 'otherwise)))
 
 
 

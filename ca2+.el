@@ -208,20 +208,24 @@
       (minibuffer-complete)
     ;; workaround to make the loading order of ca2+ and yasnippet 
     ;; independent without the chance to get infinite recursion.
-    (let ((tmp yas/fallback-behavior))
-      (unless (and (not (or 
-			 (eq indent-line-function 'indent-to-left-margin)
-			 (eq indent-line-function 'indent-relative)))
-		   (if (not mark-active)
-		       (let ((prev-point (point)))
-			 (indent-for-tab-command)
-			 (not (eql (point) prev-point)))
-		     (indent-region (region-beginning) (region-end)) t))
-	(unless (and (fboundp 'yas/expand)
-		     (setq yas/fallback-behavior 'return-nil)
-		     (yas/expand))
-	  (ca-begin)))
-      (setq yas/fallback-behavior tmp))))
+    ;;(if (not (boundp 'yas-fallback-behavior))
+    ;;(ca-begin)
+    ;;(let ((tmp yas-fallback-behavior))
+    (unless (and (not (or 
+		       (eq indent-line-function 'indent-to-left-margin)
+		       (eq indent-line-function 'indent-relative)))
+		 (if (not mark-active)
+		     (let ((prev-point (point)))
+		       (indent-for-tab-command)
+		       (not (eql (point) prev-point)))
+		   (indent-region (region-beginning) (region-end)) t))
+      ;;(unless (and (fboundp 'yas-expand)
+      ;;	     (setq yas-fallback-behavior 'return-nil)
+      ;;	     (yas-expand))
+      (unless (ca-begin)
+	(insert "\t")))))
+;;(setq yas-fallback-behavior tmp)
+;;))))
 
 (defvar ca-mode-map
   (let ((map (make-sparse-keymap)))
@@ -343,7 +347,6 @@
     (setq ca-highlight-parentheses-mode t)
     (highlight-parentheses-mode 0))
 
-
   (if (not candidates)
       (if (not source)
 	  (ca-get-candidates)
@@ -373,6 +376,9 @@
     (when candidates
       (ca-show-overlay)
       (ca-show-overlay-tips)))
+  ;; show candidate info in minibuffer
+  (when (consp (car ca-candidates))
+    (ca-source-candidate-info (car ca-candidates)))
   ca-candidates)
 
 
@@ -663,6 +669,13 @@
 (defun ca-source-separator ()
   (cdr-safe (assq 'separator ca-current-source)))
 
+(defun ca-source-has-extend ()
+  (cdr-safe (assq 'extend ca-current-source)))
+
+(defun ca-source-extend (candidate)
+  (let ((func (cdr-safe (assq 'extend ca-current-source))))
+    (if func
+	(funcall func (cdr candidate)))))
 
 (defun ca-info-timer-func ()
   (when (cdr-safe ca-current-candidate)
@@ -1153,20 +1166,21 @@
 	  (setq separators (list separators)))
       (dolist (separator separators)
 	(setq sep (regexp-quote separator))
-	(setq tmp (string-match (concat "\\(" sep "\\)[^" sep "]*$") ca-common))
+	(setq tmp (string-match (concat "\\(" sep "\\)[^" sep "]*$") 
+				ca-common))
 	(when tmp 
 	  (setq strip (+ tmp (length separator)))))
       (unless strip (setq strip 0)))
     strip))
 
-(defun ca-show-tooltip-at-point (lines &optional highlight)
+(defun ca-show-tooltip-at-point(cands &optional highlight)
   (ca-hide-tooltip)
   (let* ((strip (ca-tooltip-strip))
 	 (start (- (- (current-column)
 		      (- (length ca-prefix) strip))
 		   (window-hscroll)))
 	 
-	 (lines (if (consp (car lines)) (mapcar 'car lines) lines))
+	 (lines (if (consp (car cands)) (mapcar 'car cands) cands))
 	 ;; strip redundant prefix
 	 (lines (if (> strip 0)
 		    (mapcar '(lambda (s) (substring s strip))
@@ -1176,6 +1190,23 @@
 	 (lengths (mapcar 'length lines))
 	 (max-length (min (apply 'max lengths)
 			  (- (+ (window-hscroll) (window-width)) start)))
+
+	 ;; add extra info to lines
+	 (lines (if (and (ca-source-has-extend)
+			 (consp (car cands)))
+		    (mapcar* '(lambda (line cand length)
+				(concat line 
+					(make-string (- max-length length) ? )
+					;; (ca-semantic-format-args (cdr cand))
+					(ca-source-extend cand)
+					))
+			     lines cands lengths)
+		  lines))
+
+	 (lengths (mapcar 'length lines))
+	 (max-length (min (apply 'max lengths)
+			  (- (+ (window-hscroll) (window-width)) start)))
+
 	 (i -1)
 	 (lines (mapcar*
                  '(lambda (line length)
