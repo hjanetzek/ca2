@@ -244,15 +244,47 @@ COLOR specifies if color should be used."
       (insert " ")
       (insert (car candidate)))))
 
-(defvar ca-source-semantic-context
+(defun ca-semantic-show-doc (tag)
+  (let ((doc (semantic-documentation-for-tag tag)))
+    (if (or (null doc) (string= doc ""))
+	(message "Doc unavailable for: %s"
+		 (semantic-format-tag-uml-prototype tag t))
+      (with-output-to-temp-buffer "*TAG DOCUMENTATION*"
+	(princ "\n  ")
+	(princ (ca-semantic-format-tag tag))
+	(princ "\n\n")
+	(cond 
+	 (doc
+	  (setq doc (semantic--format-colorize-text doc 'documentation))
+	  (princ doc))
+	 (t 
+	  (princ "  Documentation unavailable.")))))))
+
+(defun ca-source-semantic-describe (candidate)
+  (cond ((and (consp candidate) 
+	      (semantic-tag-p (cdr candidate)))
+	 (ca-semantic-show-doc (cdr candidate)))
+	(t
+	 (message "no description"))))
+
+(defun ca-source-semantic-tag-extend (tag)
+  (cond ((semantic-tag-p tag)
+	 (ca-semantic-format-args tag))
+	(t
+	 (message "no tag")
+	 nil)))
+
+(setq ca-source-semantic-context
   '((decider . ca-source-semantic-context-decider)
     (candidates . ca-source-semantic-context-candidates)
     (info . ca-source-semantic-tag-summary)
+    (extend . ca-source-semantic-tag-extend)
     (continue . ca-source-semantic-continue)
+    (describe  . ca-source-semantic-describe)
     (sorted . t)
     (action . ca-source-semantic-action)
-    (name . "semantic-context"))
-  "ca2+ source for semantic context completion")
+    (name . "semantic-context")))
+  ;; "ca2+ source for semantic context completion")
 
 
 ;; standard semantic tags completion
@@ -289,12 +321,64 @@ COLOR specifies if color should be used."
 	  (ca-source-semantic-summary-and-doc tag)
 	(semantic-format-tag-summarize-with-file tag nil t))))
 
+
+(defun ca-semantic-format-args (tag &optional parent color)
+  "Return a UML style prototype for TAG.
+Optional argument PARENT is the parent type if TAG is a detail.
+Optional argument COLOR means highlight the prototype with font-lock colors."
+  (let* ((class (semantic-tag-class tag))
+	 (type (semantic--format-tag-uml-type tag color))
+	 (argtext
+	  (cond ((eq class 'function)
+		 (concat
+		  " ("
+		  (semantic--format-tag-arguments
+		   (semantic-tag-function-arguments tag)
+		   #'semantic-format-tag-prototype
+		   color)
+		  ")"))
+		((eq class 'type)
+		 "{}")))
+	 )
+    (concat argtext type)
+    ))
+
+(defun ca-semantic-format-tag (tag &optional parent color)
+  "Return a UML style prototype for TAG.
+Optional argument PARENT is the parent type if TAG is a detail.
+Optional argument COLOR means highlight the prototype with font-lock colors."
+  (let* ((class (semantic-tag-class tag))
+	 (cp (semantic-format-tag-name tag parent color))
+	 (type (semantic--format-tag-uml-type tag color))
+	 (prot (semantic-format-tag-uml-protection tag parent color))
+	 (argtext
+	  (cond ((eq class 'function)
+		 (concat
+		  " ("
+		  (semantic--format-tag-arguments
+		   (semantic-tag-function-arguments tag)
+		   #'semantic-format-tag-prototype
+		   color)
+		  ")"))
+		((eq class 'type)
+		 "{}")))
+	 (text nil))
+    (setq text (concat prot cp argtext type))
+    (if color
+	(setq text (semantic--format-uml-post-colorize text tag parent)))
+    text
+    ))
+
 ;; copied from company-semantic.el
 (defun ca-source-semantic-summary-and-doc (tag)
-  (let* (;;(name (semantic-tag-name tag))
+  ;; (setq ezimage-use-images nil)
+  (let* (
+	 (semantic-format-use-images-flag nil)
+	 ;;(name (semantic-tag-name tag))
 	 ;;(tag (semantic-analyze-find-tag name))
 	 (doc (ignore-errors (semantic-documentation-for-tag tag)))
-	 (summary (semantic-format-tag-summarize-with-file tag nil t)))
+	 ;; (summary (semantic-format-tag-summarize-with-file tag nil t)))
+	 (summary (ca-semantic-format-tag tag nil t)))
     (and (stringp doc)
          (string-match "\n*\\(.*\\)$" doc)
          (setq doc (match-string 1 doc)))
