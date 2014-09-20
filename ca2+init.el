@@ -57,45 +57,45 @@
 ;;;; SEMANTIC source:
 ;;(eval-after-load 'semantic
 ;; '(progn 
-     ;;(require 'semantic-ia)
+;;(require 'semantic-ia)
 
-     ;; Enable experimental, but (hopefully) faster version.  
-     ;; Search results for a desired type are also sorted by
-     ;; reachability so vars having the desired type come first, then
-     ;; vars that have members from which desired type is reachable.
-     (require 'ca2+semantic)
+;; Enable experimental, but (hopefully) faster version.  
+;; Search results for a desired type are also sorted by
+;; reachability so vars having the desired type come first, then
+;; vars that have members from which desired type is reachable.
+(require 'ca2+semantic)
 
-     ;; complete prefix with tags found in semantics tags table
-     ;; (ca-add-source ca-source-semantic-tags
-     ;; 		    '(c++-mode c-mode))
-     
+;; complete prefix with tags found in semantics tags table
+;; (ca-add-source ca-source-semantic-tags
+;; 		    '(c++-mode c-mode))
+
      ;;;; this source tries to figure out from context what preferred
-     ;; candidates are. e.g: for 'int bla =' it finds vars and
-     ;; functions that have int as type, same within function
-     ;; arguments. it also sorts candidates first that have members
-     ;; from which the desired type is reachable (when using
-     ;; ca2+semantic). Use C-ret (ca-expand-and-continue) to complete
-     ;; a function and insert argument templates for funtions or to
-     ;; complete a variable and insert '.' resp. '->' and continue with
-     ;; completing its members.
- (ca-add-source ca-source-semantic-context
- 		    '(c++-mode c-mode java-mode jde-mode))
-     
+;; candidates are. e.g: for 'int bla =' it finds vars and
+;; functions that have int as type, same within function
+;; arguments. it also sorts candidates first that have members
+;; from which the desired type is reachable (when using
+;; ca2+semantic). Use C-ret (ca-expand-and-continue) to complete
+;; a function and insert argument templates for funtions or to
+;; complete a variable and insert '.' resp. '->' and continue with
+;; completing its members.
+(ca-add-source ca-source-semantic-context
+	       '(c++-mode c-mode java-mode jde-mode))
+
      ;;;; OMNICOMPLETION:
-     ;; uncomment things below for omnicompletion. though you can just
-     ;; type [tab] and C-ret to complete current candidate, insert '.' or 
-     ;; respectively '->' and show completion menu for members.
-     ;;
-     ;; (defun ca-semantic-completion (arg)
-     ;;   (interactive "p")
-     ;;   (self-insert-command arg)
-     ;;   (when (and (= arg 1))
-     ;; 	 (ca-begin nil ca-source-semantic-context)))
-     ;; (defun ca-semantic-c-hook ()
-     ;;   (local-set-key "." 'ca-semantic-completion)
-     ;;   (local-set-key ">" 'ca-semantic-completion))
-     ;; (add-hook 'c-mode-common-hook 'ca-semantic-c-hook)
- ;;   ))
+;; uncomment things below for omnicompletion. though you can just
+;; type [tab] and C-ret to complete current candidate, insert '.' or 
+;; respectively '->' and show completion menu for members.
+;;
+;; (defun ca-semantic-completion (arg)
+;;   (interactive "p")
+;;   (self-insert-command arg)
+;;   (when (and (= arg 1))
+;; 	 (ca-begin nil ca-source-semantic-context)))
+;; (defun ca-semantic-c-hook ()
+;;   (local-set-key "." 'ca-semantic-completion)
+;;   (local-set-key ">" 'ca-semantic-completion))
+;; (add-hook 'c-mode-common-hook 'ca-semantic-c-hook)
+;;   ))
 
 (eval-after-load "pymacs"
   ;; TODO figure out when rope is loaded
