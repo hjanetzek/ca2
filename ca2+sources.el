@@ -80,7 +80,7 @@
     (limit      . 1)
     (sorted     . t)
     (name       . "dabbrev"))
-  "ca2+ dabbrev source")
+  "Ca2+ dabbrev source")
 
 
 
@@ -112,7 +112,7 @@
     (continue   . ca-source-filename-candidates) ;; find new completions
     ;;(sorted     . t)
     (name       . "filename"))
-  "ca2+ filename source")
+  "Ca2+ filename source")
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; lisp symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -146,7 +146,7 @@
                          ;; this is used to reduce the number 
                          ;; of visible candidates, instead
                          ;; the prefixes are shown.
-  "ca2+ lisp symbol source")
+  "Ca2+ lisp symbol source")
 
 
 
@@ -175,7 +175,7 @@
     (sort-by-occurrence . t)
     (common-prefix . t)
     (name       . "gtags"))
-  "ca2+ gtags source")
+  "Ca2+ gtags source")
 
 
 
@@ -211,7 +211,7 @@
     (limit      . 1)
     (sorted     . t)
     (name       . "yasnippet"))
-  "ca2+ yasnippet source")
+  "Ca2+ yasnippet source")
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; python rope ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -219,7 +219,8 @@
 (defun ca-source-rope-candidates (prefix)
   (let (cands)
     (dolist (cand (rope-completions))
-      (setq cands (cons (format "%s%s" prefix cand) cands)))
+      ;;(setq cands (cons (format "%s%s" prefix cand) cands)))
+      (setq cands (cons (concat prefix cand) cands)))
     cands))
 
 (defun ca-source-rope-decider ()
@@ -246,7 +247,36 @@
     (sort-by-occurrence . t)
     (common-prefix . t)
     (name       . "python"))
-  "ca2+ rope powered python source")
+  "Ca2+ rope powered python source")
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; rust racer  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun ca--source-racer-candidates(prefix)
+  (racer--candidates))
+
+(defun ca--source-racer-decider()
+  (if (looking-back "[:.]")
+      (point)
+    (car-safe (bounds-of-thing-at-point 'word))
+    ;;(re-search-backward "\\([a-zA-z1-9]\\)*" nil t)
+    ))
+
+(defun ca--source-racer-tag-extend (arg)
+  (format "%10s : %s"
+	  (get-text-property 0 'matchtype arg)
+	  (get-text-property 0 'contextstr arg)))
+
+(defvar ca-source-rust-racer
+  '((candidates . ca--source-racer-candidates)
+    (decider    . ca--source-racer-decider)
+    ;;(continue   . ca-source-racer-continue)
+    (extend . ca--source-racer-tag-extend)
+    (filter     . t)
+    (sorted     . nil)
+    (sort-by-occurrence . t)
+    (common-prefix . t)
+    (name       . "rust"))
+  "Ca2+ racer powered rust source")
 
 (provide 'ca2+sources)
+

@@ -102,6 +102,10 @@
   (ca-add-source ca-source-python-rope
 		 '(python-mode)))
 
+(eval-after-load "racer"
+(ca-add-source ca-source-rust-racer
+	       '(rust-mode)))
+
 ;;;; GENERAL sources are tried after mode specific ones 
 (ca-add-source ca-source-filename 'otherwise)
 (ca-add-source ca-source-dabbrev 'otherwise)

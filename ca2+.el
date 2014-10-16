@@ -342,7 +342,8 @@
   ;; workarounds
   (when (looking-at "$")
     (insert-string " ") (backward-char))
-  (when (and (fboundp 'highlight-parentheses-mode)
+
+  (when (and (boundp 'highlight-parentheses-mode)
 	     highlight-parentheses-mode)
     (setq ca-highlight-parentheses-mode t)
     (highlight-parentheses-mode 0))
@@ -468,29 +469,35 @@
 	    (push (cadr item) ca-candidates)
 	  (push (car item) ca-candidates))))))
 
+(split-string "  " " " t)
 
 (defun ca-filter-candidates (&optional dont-filter-words)
   (let* ((candidates nil)
 	 (prefix (concat "^" ca-prefix)))
     (setq case-fold-search t)
-    (if ca-substring-match-on 
+    (if (and ca-substring-match-on (> (length prefix) 2))
 	;; find substring matches, sort by min positions
-	(let ((parts (split-string prefix ca-substring-match-delimiter))
-	      cnt it)
+	(let ((parts (split-string prefix ca-substring-match-delimiter t)))
+	  
 	  (dolist (cand ca-all-candidates)
-	    (setq match nil)
-	    (setq cnt 0)
-	    (setq it parts)
-	    (while it
-	      (setq match (string-match (car it) 
-					(ca-candidate-string cand)))
-	      (if (not match)
-		  (setq it nil)
-		(setq cnt (+ cnt match))
-		(setq it (cdr it))))
+	    ;;(setq match nil)
+	    ;;(setq cnt 0)
+	    ;;(setq item parts)
+	    ;;(message "... %s %s %s %s %s" prefix cand parts (length prefix) (listp parts))
 	    
-	    (if match (push (cons cnt cand) candidates)))
+	    (let* ((cnt 0)
+		   (match nil))
 
+	      (dolist (item parts)
+		(setq match (string-match item
+					  (ca-candidate-string cand)))
+		(if (not match)
+		    (return nil)
+		  (setq cnt (+ cnt match))))
+	      
+	      (when match
+		(push (cons cnt cand) candidates))))
+	  
 	  (setq candidates (sort candidates '(lambda(a b) 
 					       (< (car a) (car b)))))
 
@@ -618,8 +625,8 @@
   (let ((action (cdr-safe (assq 'action source))))
     (if action (funcall action candidate))))
 
-
 (defun ca-source-decider ()
+  "Return start point for completion (begin prefix) or nil."
   (let ((decider (cdr-safe (assq 'decider ca-current-source))))
     (if  decider
 	(cond
@@ -637,10 +644,10 @@
 
 (defun ca-grab-regexp (regex &optional subexp)
   (save-excursion
-    (let ((beg (re-search-backward regex nil t)))
-      (if (and beg subexp)
+    (let ((begin (re-search-backward regex nil t)))
+      (if (and begin subexp)
 	  (match-end subexp)
-	beg))))
+	begin))))
 
 
 (defun ca-source-candidates ()
@@ -675,7 +682,9 @@
 (defun ca-source-extend (candidate)
   (let ((func (cdr-safe (assq 'extend ca-current-source))))
     (if func
-	(funcall func (cdr candidate)))))
+	(funcall func (if (consp candidate)
+			  (cdr candidate)
+			candidate)))))
 
 (defun ca-info-timer-func ()
   (when (cdr-safe ca-current-candidate)
@@ -1192,14 +1201,14 @@
 			  (- (+ (window-hscroll) (window-width)) start)))
 
 	 ;; add extra info to lines
-	 (lines (if (and (ca-source-has-extend)
-			 (consp (car cands)))
+	 (lines (if ;;(and 
+		     (ca-source-has-extend)
+		    ;;(consp (car cands))
+		    ;;)
 		    (mapcar* '(lambda (line cand length)
 				(concat line 
 					(make-string (- max-length length) ? )
-					;; (ca-semantic-format-args (cdr cand))
-					(ca-source-extend cand)
-					))
+					(ca-source-extend cand)))
 			     lines cands lengths)
 		  lines))
 
